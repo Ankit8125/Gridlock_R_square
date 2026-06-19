@@ -1,0 +1,127 @@
+import unittest
+import urllib.request
+import urllib.error
+import json
+
+BASE_URL = "http://127.0.0.1:8000/api"
+
+class TestBackendAPI(unittest.TestCase):
+    
+    def test_01_health_check(self):
+        print("Testing /api/health...")
+        req = urllib.request.Request(f"{BASE_URL}/health")
+        try:
+            with urllib.request.urlopen(req) as response:
+                self.assertEqual(response.status, 200)
+                data = json.loads(response.read().decode('utf-8'))
+                self.assertEqual(data["status"], "healthy")
+                self.assertEqual(data["timezone"], "Asia/Kolkata")
+        except urllib.error.URLError as e:
+            self.fail(f"Failed to connect to API server: {e}")
+
+    def test_02_analytics(self):
+        print("Testing /api/analytics...")
+        req = urllib.request.Request(f"{BASE_URL}/analytics")
+        with urllib.request.urlopen(req) as response:
+            self.assertEqual(response.status, 200)
+            data = json.loads(response.read().decode('utf-8'))
+            self.assertIn("kpis", data)
+            self.assertIn("cause_breakdown", data)
+            self.assertIn("vehicle_breakdown_types", data)
+            self.assertIn("hourly_distribution", data)
+            self.assertIn("top_police_stations", data)
+            self.assertGreater(data["kpis"]["total_events"], 0)
+
+    def test_03_junctions(self):
+        print("Testing /api/junctions...")
+        req = urllib.request.Request(f"{BASE_URL}/junctions")
+        with urllib.request.urlopen(req) as response:
+            self.assertEqual(response.status, 200)
+            data = json.loads(response.read().decode('utf-8'))
+            self.assertIn("junctions", data)
+            self.assertGreater(len(data["junctions"]), 0)
+
+    def test_04_predict_high_volume(self):
+        print("Testing /api/predict for high-volume cause...")
+        payload = {
+            "cause": "accident",
+            "event_type": "unplanned",
+            "latitude": 12.9218,
+            "longitude": 77.6451,
+            "requires_road_closure": False,
+            "corridor": "ORR East 1",
+            "hour": 9,
+            "day_of_week": 1
+        }
+        req = urllib.request.Request(
+            f"{BASE_URL}/predict",
+            data=json.dumps(payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        with urllib.request.urlopen(req) as response:
+            self.assertEqual(response.status, 200)
+            data = json.loads(response.read().decode('utf-8'))
+            self.assertEqual(data["data_basis"], "learned")
+            self.assertEqual(data["predicted_priority"], "high")
+            self.assertGreater(data["predicted_duration_minutes"], 0)
+            self.assertIn("resources", data)
+            self.assertGreater(data["resources"]["manpower"]["total_officers"], 0)
+
+    def test_05_predict_low_volume(self):
+        print("Testing /api/predict for low-volume cause...")
+        payload = {
+            "cause": "protest",
+            "event_type": "unplanned",
+            "latitude": 12.9740,
+            "longitude": 77.5452,
+            "requires_road_closure": True,
+            "corridor": "Non-corridor",
+            "hour": 18,
+            "day_of_week": 4
+        }
+        req = urllib.request.Request(
+            f"{BASE_URL}/predict",
+            data=json.dumps(payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        with urllib.request.urlopen(req) as response:
+            self.assertEqual(response.status, 200)
+            data = json.loads(response.read().decode('utf-8'))
+            self.assertEqual(data["data_basis"], "similarity_retrieval")
+            self.assertIn("similar_historical_events", data)
+            self.assertGreater(len(data["similar_historical_events"]), 0)
+
+    def test_06_feedback(self):
+        print("Testing /api/feedback logging...")
+        payload = {
+            "event_id": "FKID000001",
+            "actual_duration": 45.0,
+            "actual_manpower_total": 4,
+            "actual_barricades": 10,
+            "police_station": "yelahanka",
+            "notes": "Test validation log"
+        }
+        req = urllib.request.Request(
+            f"{BASE_URL}/feedback",
+            data=json.dumps(payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        with urllib.request.urlopen(req) as response:
+            self.assertEqual(response.status, 200)
+            data = json.loads(response.read().decode('utf-8'))
+            self.assertEqual(data["status"], "success")
+
+    def test_07_feedback_summary(self):
+        print("Testing /api/feedback/summary...")
+        req = urllib.request.Request(f"{BASE_URL}/feedback/summary")
+        with urllib.request.urlopen(req) as response:
+            self.assertEqual(response.status, 200)
+            data = json.loads(response.read().decode('utf-8'))
+            self.assertIn("logs", data)
+            self.assertGreater(len(data["logs"]), 0)
+            # Check if our test log is there
+            ids = [l["event_id"] for l in data["logs"]]
+            self.assertIn("FKID000001", ids)
+
+if __name__ == "__main__":
+    unittest.main()
