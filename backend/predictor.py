@@ -3,7 +3,17 @@ import json
 import joblib
 import pandas as pd
 import numpy as np
+from math import radians, cos, sin, asin, sqrt
 from backend.impact_scoring import compute_impact_score
+
+
+def haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Return the Haversine distance in metres between two (lat, lon) points."""
+    R = 6_371_000.0
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+    return 2 * R * asin(sqrt(max(0.0, min(1.0, a))))
 
 # Define high-volume causes matching train_models.py
 HIGH_VOLUME_CAUSES = [
@@ -14,8 +24,21 @@ HIGH_VOLUME_CAUSES = [
 
 class EventPredictor:
     def __init__(self):
-        self.models_dir = r"d:\Coding\gridlock\Round 2\backend\models"
-        self.cleaned_csv = r"d:\Coding\gridlock\Round 2\backend\artifacts\cleaned_events.csv"
+        backend_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(backend_dir)
+        
+        # Load .env file manually if it exists
+        env_path = os.path.join(backend_dir, ".env")
+        if os.path.exists(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, val = line.split("=", 1)
+                        os.environ[key.strip()] = val.strip()
+        
+        self.models_dir = os.path.join(backend_dir, "models")
+        self.cleaned_csv = os.path.join(backend_dir, "artifacts", "cleaned_events.csv")
         
         # Load models if they exist
         self.duration_model = None
@@ -34,7 +57,7 @@ class EventPredictor:
             self.closure_model = self._limit_parallelism(joblib.load(closure_path))
             
         # Policy Adjustments logic
-        self.adjustments_path = r"d:\Coding\gridlock\Round 2\backend\artifacts\policy_adjustments.json"
+        self.adjustments_path = os.path.join(backend_dir, "artifacts", "policy_adjustments.json")
         self.load_adjustments()
 
         # Load database for similarity retrieval, junctions, hotspots, and corridor risks
@@ -91,11 +114,62 @@ class EventPredictor:
                                           (corridors_df['road_closure_rate'] / 100) * 30 + 
                                           (corridors_df['high_priority_rate'] / 100) * 30).round(1)
             self.corridor_risks = corridors_df.sort_values(by='risk_score', ascending=False).to_dict(orient='records')
+
+            # 4. Hotspot lat/lon lookup (for station-level allocation)
+            station_latlon = self.df.groupby('police_station_clean').agg(
+                lat=('latitude', 'mean'),
+                lon=('longitude', 'mean')
+            ).reset_index()
+            self._station_latlon = {
+                row['police_station_clean']: (row['lat'], row['lon'])
+                for _, row in station_latlon.iterrows()
+                if pd.notnull(row['lat']) and pd.notnull(row['lon'])
+            }
+            # Attach lat/lon to hotspots records
+            for hs in self.hotspots:
+                ps = hs.get('police_station_clean', '')
+                if ps in self._station_latlon:
+                    hs['lat'], hs['lon'] = self._station_latlon[ps]
+
+            # 5. Venue Recurrence — locations that repeatedly generate incidents
+            venue_df = self.df.dropna(subset=['latitude', 'longitude']).copy()
+            venue_df['grid_cell'] = (
+                venue_df['latitude'].round(3).astype(str) + ',' +
+                venue_df['longitude'].round(3).astype(str)
+            )
+            venue_agg = venue_df.groupby('grid_cell').agg(
+                incident_count=('id', 'count'),
+                lat=('latitude', 'mean'),
+                lon=('longitude', 'mean'),
+                top_cause=('event_cause_clean', lambda x: x.value_counts().index[0] if len(x) > 0 else 'unknown'),
+                avg_duration=('duration', lambda x: float(x[x >= 0].mean()) if not x[x >= 0].empty else 0.0),
+                road_closure_rate=('requires_road_closure', lambda x: float(x.mean() * 100))
+            ).reset_index()
+            venue_agg = venue_agg[venue_agg['incident_count'] >= 3]
+            max_v = venue_agg['incident_count'].max() or 1
+            venue_agg['recurrence_score'] = ((venue_agg['incident_count'] / max_v) * 100).round(1)
+            # Replace any remaining NaN with 0 for JSON safety
+            venue_agg = venue_agg.fillna(0)
+            self.venue_recurrence = venue_agg.sort_values('incident_count', ascending=False).head(50).to_dict(orient='records')
+
+            # 6. Weekly Heatmap (7 × 24 grid: day of week × hour of day)
+            weekly = self.df.dropna(subset=['local_day_of_week', 'local_hour']).copy()
+            weekly['local_day_of_week'] = weekly['local_day_of_week'].astype(int)
+            weekly['local_hour'] = weekly['local_hour'].astype(int)
+            weekly_counts = weekly.groupby(['local_day_of_week', 'local_hour']).size().reset_index(name='count')
+            self.weekly_heatmap = weekly_counts.to_dict(orient='records')
+
+            # 7. Surge Anomaly Detection — corridors/stations with recent spike vs. historical baseline
+            self.surge_alerts = self._compute_surge_alerts()
         else:
             self.df = None
             self.junctions = []
             self.hotspots = []
             self.corridor_risks = []
+            self._station_latlon = {}
+            self.venue_recurrence = []
+            self.weekly_heatmap = []
+            self.surge_alerts = []
 
     def load_adjustments(self):
         self.multipliers = {
@@ -110,8 +184,236 @@ class EventPredictor:
             except Exception:
                 pass
 
+    def _compute_surge_alerts(self):
+        """Detect corridors with abnormally high incident rates in recent data vs baseline."""
+        if self.df is None or 'local_month' not in self.df.columns:
+            return []
+        try:
+            df = self.df.copy()
+            df['local_month'] = df['local_month'].fillna(-1).astype(int)
+            recent_months = sorted(df['local_month'].unique())[-2:]
+            recent = df[df['local_month'].isin(recent_months)]
+            baseline = df[~df['local_month'].isin(recent_months)]
+            if recent.empty or baseline.empty:
+                return []
+            baseline_months_n = len(baseline['local_month'].unique()) or 1
+            recent_months_n = len(recent['local_month'].unique()) or 1
+            base_rate = baseline.groupby('corridor_clean').size() / baseline_months_n
+            recent_rate = recent.groupby('corridor_clean').size() / recent_months_n
+            alerts = []
+            for corridor in recent_rate.index:
+                r = recent_rate.get(corridor, 0)
+                b = base_rate.get(corridor, 0)
+                if b > 0 and r > 0:
+                    surge_factor = r / b
+                    if surge_factor >= 1.5 and r >= 2:
+                        alerts.append({
+                            "corridor": corridor,
+                            "baseline_monthly_rate": round(float(b), 1),
+                            "recent_monthly_rate": round(float(r), 1),
+                            "surge_factor": round(float(surge_factor), 2),
+                            "severity": "Critical" if surge_factor >= 2.5 else "High" if surge_factor >= 1.8 else "Moderate"
+                        })
+            alerts.sort(key=lambda x: x['surge_factor'], reverse=True)
+            return alerts[:15]
+        except Exception as e:
+            print(f"Surge detection error: {e}")
+            return []
+
+    def get_station_allocation(self, lat: float, lon: float, total_officers: int, k: int = 3) -> list:
+        """Find k nearest police stations and allocate officers proportionally by inverse distance."""
+        if not self._station_latlon or total_officers == 0:
+            return []
+        station_distances = []
+        for station, (slat, slon) in self._station_latlon.items():
+            dist = haversine_meters(lat, lon, slat, slon)
+            station_distances.append((station, dist))
+        station_distances.sort(key=lambda x: x[1])
+        nearest = station_distances[:k]
+        total_inv = sum(1.0 / max(d, 1) for _, d in nearest) or 1.0
+        allocations = []
+        remaining = total_officers
+        for i, (station, dist) in enumerate(nearest):
+            if i == len(nearest) - 1:
+                count = max(0, remaining)
+            else:
+                weight = (1.0 / max(dist, 1)) / total_inv
+                count = max(1, round(total_officers * weight))
+                remaining -= count
+            allocations.append({
+                "station": station,
+                "officers": count,
+                "distance_meters": round(dist, 0)
+            })
+        return allocations
+
+    def fetch_weather(self, lat: float, lon: float) -> dict:
+        """Fetch current weather data for coordinates using Open-Meteo API (free, no key required)."""
+        import urllib.request
+        import json
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=weather_code,rain,showers,temperature_2m"
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=3.0) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                current = data.get("current", {})
+                weather_code = current.get("weather_code", 0)
+                rain = current.get("rain", 0.0)
+                showers = current.get("showers", 0.0)
+                temp = current.get("temperature_2m", 25.0)
+                
+                # Interpret WMO codes
+                is_raining = rain > 0.0 or showers > 0.0 or weather_code >= 51
+                description = "Clear"
+                if weather_code in [1, 2, 3]:
+                    description = "Cloudy"
+                elif weather_code in [45, 48]:
+                    description = "Foggy"
+                elif weather_code in [51, 53, 55]:
+                    description = "Drizzle"
+                elif weather_code in [61, 63, 65, 80, 81, 82]:
+                    description = "Rainy"
+                elif weather_code in [95, 96, 99]:
+                    description = "Thunderstorm"
+                    
+                return {
+                    "temperature": temp,
+                    "weather_code": weather_code,
+                    "description": description,
+                    "is_raining": is_raining,
+                    "rain_mm": rain + showers,
+                    "source": "Open-Meteo"
+                }
+        except Exception as e:
+            return {
+                "temperature": 27.0,
+                "weather_code": 0,
+                "description": "Clear (Fallback)",
+                "is_raining": False,
+                "rain_mm": 0.0,
+                "source": "Fallback"
+            }
+
+    def generate_diversion_plan(self, cause: str, corridor: str, lat: float, lon: float, nearest_junctions: list, is_raining: bool) -> dict:
+        """Generate a step-by-step tactical diversion plan for field officers using Gemini API."""
+        import os
+        import urllib.request
+        import json
+
+        cause_clean = str(cause).strip().lower()
+        corridor_clean = str(corridor).strip()
+        if not corridor_clean or corridor_clean == 'nan':
+            corridor_clean = 'Non-corridor'
+
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("[GEMINI] Missing GEMINI_API_KEY environment variable. Cannot generate diversion plan.")
+
+        prompt = (
+            f"You are the ASTRAM Traffic Command Center AI for Bengaluru. "
+            f"An event of type '{cause_clean}' occurred on corridor '{corridor_clean}' at coordinates ({lat}, {lon}). "
+            f"The nearest traffic junctions are: {', '.join([j['name'] for j in nearest_junctions])}. "
+            f"Current weather is {'Rainy' if is_raining else 'Clear'}. "
+            f"Provide a tactical diversion plan in JSON format with two keys: "
+            f"1. 'summary': A concise 1-sentence briefing summary. "
+            f"2. 'steps': A list of 3-4 specific tactical steps for police constables "
+            f"directing traffic at the nearest junctions (using the junction names provided). "
+            f"Respond ONLY with raw JSON."
+        )
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+        
+        body = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }],
+            "generationConfig": {
+                "responseMimeType": "application/json"
+            }
+        }
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(body).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        with urllib.request.urlopen(req, timeout=30.0) as response:
+            res_data = json.loads(response.read().decode('utf-8'))
+            text = res_data['candidates'][0]['content']['parts'][0]['text']
+            plan = json.loads(text)
+            if "summary" in plan and "steps" in plan:
+                print("[GEMINI] Successful API call: Tactical Diversion Plan generated successfully.")
+                return plan
+            else:
+                raise ValueError(f"[GEMINI] Invalid response format from Gemini: {text}")
+
+    def compute_cascade_probability(self, is_high_priority: bool, closure_recommended: bool,
+                                    cause: str, corridor: str, is_peak_hour: bool,
+                                    predicted_duration: float, is_raining: bool = False) -> dict:
+        """Estimate probability this incident cascades to neighboring junctions and time to escalation."""
+        base = 0.10
+        if is_high_priority:
+            base += 0.25
+        if closure_recommended:
+            base += 0.20
+        if is_peak_hour:
+            base += 0.15
+        if is_raining:
+            base += 0.15
+        from backend.impact_scoring import ARTERIAL_CORRIDORS, HIGH_RISK_CAUSES
+        if str(corridor).strip().lower() in ARTERIAL_CORRIDORS or 'orr' in str(corridor).lower():
+            base += 0.15
+        if str(cause).strip().lower() in HIGH_RISK_CAUSES:
+            base += 0.10
+        if predicted_duration and predicted_duration > 180:
+            base += 0.10
+        elif predicted_duration and predicted_duration > 60:
+            base += 0.05
+        cascade_prob = min(0.98, max(0.02, base))
+        if predicted_duration and cascade_prob > 0.4:
+            pon = max(5, round(predicted_duration * (1 - cascade_prob) * 0.5))
+        else:
+            pon = None
+        return {
+            "cascade_probability": round(cascade_prob, 3),
+            "cascade_class": "Critical" if cascade_prob >= 0.7 else "High" if cascade_prob >= 0.5 else "Moderate" if cascade_prob >= 0.3 else "Low",
+            "point_of_no_return_minutes": pon,
+        }
+
+    def simulate_what_if(self, base_prediction: dict, scenario: dict) -> dict:
+        """Simulate resource change scenarios and return modified impact estimates."""
+        extra_barricades = int(scenario.get('extra_barricades', 0))
+        close_road = bool(scenario.get('close_road', False))
+        extra_officers = int(scenario.get('extra_officers', 0))
+        duration = base_prediction.get('predicted_duration_minutes') or 60.0
+        cascade = base_prediction.get('cascade', {}).get('cascade_probability', 0.5)
+        barricade_reduction = min(0.40, extra_barricades * 0.005)
+        officer_reduction = min(0.30, extra_officers * 0.01)
+        closure_duration_effect = 0.05 if close_road else 0.0
+        closure_cascade_reduction = 0.35 if close_road else 0.0
+        new_duration = max(5.0, duration * (1 - barricade_reduction - officer_reduction + closure_duration_effect))
+        new_cascade = max(0.02, cascade - closure_cascade_reduction - barricade_reduction * 0.5)
+        new_barricades = base_prediction['resources']['barricades'] + extra_barricades
+        new_officers = base_prediction['resources']['manpower']['total_officers'] + extra_officers
+        duration_delta = round(new_duration - duration, 1)
+        return {
+            "scenario": scenario,
+            "modified_duration_minutes": round(new_duration, 1),
+            "duration_change_minutes": duration_delta,
+            "duration_change_pct": round((duration_delta / duration) * 100, 1) if duration else 0,
+            "modified_cascade_probability": round(new_cascade, 3),
+            "cascade_change": round(new_cascade - cascade, 3),
+            "total_officers": new_officers,
+            "total_barricades": new_barricades,
+            "recommendation": (
+                "Recommended — significant improvement predicted." if duration_delta < -15
+                else "Marginal improvement — consider prioritising elsewhere." if duration_delta < 0
+                else "No benefit predicted."
+            )
+        }
+
     def update_policy_multipliers(self):
-        feedback_csv = r"d:\Coding\gridlock\Round 2\dataset\feedback_data.csv"
+        backend_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(backend_dir)
+        feedback_csv = os.path.join(project_root, "dataset", "feedback_data.csv")
         if not os.path.exists(feedback_csv) or self.df is None:
             return
         
@@ -204,13 +506,10 @@ class EventPredictor:
     def find_nearest_junctions(self, lat, lon, k=3):
         if not self.junctions:
             return []
-            
+
         distances = []
         for j in self.junctions:
-            # Simple Euclidean distance as proxy (valid for local city level)
-            dist = np.sqrt((j['lat'] - lat)**2 + (j['lon'] - lon)**2)
-            # Convert degrees to approximate meters (1 degree lat ~= 111,000m)
-            dist_meters = dist * 111000.0
+            dist_meters = haversine_meters(lat, lon, j['lat'], j['lon'])
             distances.append({
                 "name": j['junction'],
                 "latitude": j['lat'],
@@ -218,22 +517,26 @@ class EventPredictor:
                 "distance_meters": round(dist_meters, 1),
                 "vulnerability_score": j.get('vulnerability_score', 0.0)
             })
-            
+
         distances.sort(key=lambda x: x['distance_meters'])
         return distances[:k]
 
     def similarity_retrieval(self, cause, lat, lon, k=5):
         if self.df is None:
             return [], None
-            
+
         # Filter by cause
         subset = self.df[self.df['event_cause_clean'] == cause].copy()
         if subset.empty:
             return [], None
-            
-        subset['dist'] = np.sqrt((subset['latitude'] - lat)**2 + (subset['longitude'] - lon)**2)
-        subset['dist_meters'] = subset['dist'] * 111000.0
-        
+
+        # Haversine distance — geographically correct at Bengaluru latitude
+        subset['dist_meters'] = subset.apply(
+            lambda row: haversine_meters(lat, lon, row['latitude'], row['longitude'])
+            if pd.notnull(row['latitude']) and pd.notnull(row['longitude']) else float('inf'),
+            axis=1
+        )
+
         # Sort and take top k
         top_matches = subset.sort_values(by='dist_meters').head(k)
         
@@ -270,9 +573,9 @@ class EventPredictor:
             return None
 
     def predict_base(self, cause, event_type, lat, lon, requires_road_closure, corridor, hour, day_of_week):
-        return self.predict(cause, event_type, lat, lon, requires_road_closure, corridor, hour, day_of_week, apply_adjustments=False)
+        return self.predict(cause, event_type, lat, lon, requires_road_closure, corridor, hour, day_of_week, apply_adjustments=False, generate_diversion=False)
 
-    def predict(self, cause, event_type, lat, lon, requires_road_closure, corridor, hour, day_of_week, apply_adjustments=True):
+    def predict(self, cause, event_type, lat, lon, requires_road_closure, corridor, hour, day_of_week, apply_adjustments=True, generate_diversion=True):
         cause_clean = str(cause).strip().lower()
         event_type_clean = str(event_type).strip().lower()
         requires_closure_bool = str(requires_road_closure).strip().upper() == 'TRUE'
@@ -281,6 +584,10 @@ class EventPredictor:
             corridor_clean = 'Non-corridor'
             
         is_peak_hour = 1 if (8 <= hour <= 11) or (17 <= hour <= 20) else 0
+
+        # Fetch current weather
+        weather = self.fetch_weather(float(lat), float(lon))
+        is_raining = weather["is_raining"]
 
         # Construct input DataFrame for ML models
         input_data = pd.DataFrame([{
@@ -397,6 +704,12 @@ class EventPredictor:
         elif cause_clean == 'accident':
             barricades_count += 3
 
+        # Apply weather-based increases if it is raining
+        if is_raining:
+            predicted_duration = predicted_duration * 1.25  # +25% duration
+            pc_count += 1
+            barricades_count += 5
+
         # Apply Feedback Learning Adjustments if requested
         if apply_adjustments:
             manpower_mul = self.multipliers.get("manpower_multiplier", 1.0)
@@ -431,6 +744,9 @@ class EventPredictor:
                     risk = 15
                 else:
                     risk = 5
+            
+            if is_raining:
+                risk = min(95, risk + 10)  # +10% risk in rain
             j['spillover_risk_percentage'] = risk
 
         # Compute Conformal Prediction Interval (Uncertainty bounds using decision tree predictions variance)
@@ -473,7 +789,35 @@ class EventPredictor:
             data_basis=data_basis,
         )
 
-        return {
+        # Cascade probability and time-to-escalation
+        cascade = self.compute_cascade_probability(
+            is_high_priority=is_high_priority,
+            closure_recommended=closure_recommended,
+            cause=cause_clean,
+            corridor=corridor_clean,
+            is_peak_hour=bool(is_peak_hour),
+            predicted_duration=predicted_duration,
+            is_raining=is_raining
+        )
+
+        # Station-level officer allocation
+        total_officers = si_count + hc_count + pc_count
+        station_allocations = self.get_station_allocation(float(lat), float(lon), total_officers, k=3)
+
+        # Generate diversion plan
+        if generate_diversion:
+            diversion_plan = self.generate_diversion_plan(
+                cause=cause_clean,
+                corridor=corridor_clean,
+                lat=float(lat),
+                lon=float(lon),
+                nearest_junctions=nearest_junctions,
+                is_raining=is_raining
+            )
+        else:
+            diversion_plan = None
+
+        result = {
             "predicted_duration_minutes": round(predicted_duration, 1) if predicted_duration else None,
             "predicted_duration_interval": {
                 "min": round(interval_min, 1),
@@ -490,20 +834,25 @@ class EventPredictor:
                 "confidence": impact["confidence"],
                 "explanations": impact["explanations"]
             },
+            "cascade": cascade,
             "data_basis": data_basis,
             "requires_road_closure": requires_closure_bool,
+            "weather": weather,
+            "diversion_plan": diversion_plan,
             "resources": {
                 "manpower": {
                     "sub_inspector": si_count,
                     "head_constable": hc_count,
                     "constable": pc_count,
-                    "total_officers": si_count + hc_count + pc_count
+                    "total_officers": total_officers
                 },
-                "barricades": barricades_count
+                "barricades": barricades_count,
+                "station_allocations": station_allocations
             },
             "nearest_junction_checkpoints": nearest_junctions,
             "similar_historical_events": similar_events
         }
+        return result
 
 if __name__ == "__main__":
     import sys

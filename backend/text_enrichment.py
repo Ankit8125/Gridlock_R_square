@@ -152,7 +152,8 @@ def enrich_text_descriptions(csv_path):
         }
         count += 1
         
-    output_dir = r"d:\Coding\gridlock\Round 2\backend\artifacts"
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+    output_dir = os.path.join(SCRIPT_DIR, "artifacts")
     os.makedirs(output_dir, exist_ok=True)
     
     output_path = os.path.join(output_dir, "text_enrichment.json")
@@ -162,5 +163,7 @@ def enrich_text_descriptions(csv_path):
     print(f"Successfully enriched {count} descriptions and saved to {output_path}")
 
 if __name__ == "__main__":
-    csv_path = r"d:\Coding\gridlock\Round 2\dataset\Astram event data_anonymized.csv"
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+    PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+    csv_path = os.path.join(PROJECT_ROOT, "dataset", "Astram event data_anonymized.csv")
     enrich_text_descriptions(csv_path)

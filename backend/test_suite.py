@@ -54,7 +54,7 @@ class TestBackendAPI(unittest.TestCase):
             "day_of_week": 1
         }
         req = urllib.request.Request(
-            f"{BASE_URL}/predict",
+            f"{BASE_URL}/predict?testing=true",
             data=json.dumps(payload).encode('utf-8'),
             headers={'Content-Type': 'application/json'}
         )
@@ -88,7 +88,7 @@ class TestBackendAPI(unittest.TestCase):
             "day_of_week": 4
         }
         req = urllib.request.Request(
-            f"{BASE_URL}/predict",
+            f"{BASE_URL}/predict?testing=true",
             data=json.dumps(payload).encode('utf-8'),
             headers={'Content-Type': 'application/json'}
         )
@@ -172,6 +172,26 @@ class TestBackendAPI(unittest.TestCase):
             self.assertIn("corridor_clean", first_cr)
             self.assertIn("incident_count", first_cr)
             self.assertIn("risk_score", first_cr)
+
+    def test_11_agent_command(self):
+        print("Testing /api/agent/command...")
+        payload = {
+            "text_report": "Waterlogging on Bellary road near yelahanka. Major flooding, road needs to be closed."
+        }
+        req = urllib.request.Request(
+            f"{BASE_URL}/agent/command?testing=true",
+            data=json.dumps(payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        with urllib.request.urlopen(req) as response:
+            self.assertEqual(response.status, 200)
+            data = json.loads(response.read().decode('utf-8'))
+            self.assertIn("parsed_parameters", data)
+            self.assertIn("prediction", data)
+            self.assertIn("dispatch_briefing", data)
+            self.assertEqual(data["parsed_parameters"]["cause"], "water_logging")
+            self.assertEqual(data["parsed_parameters"]["corridor"], "Bellary Road 1")
+            self.assertTrue(data["parsed_parameters"]["requires_road_closure"])
 
 if __name__ == "__main__":
     unittest.main()
