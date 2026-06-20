@@ -123,5 +123,16 @@ class TestBackendAPI(unittest.TestCase):
             ids = [l["event_id"] for l in data["logs"]]
             self.assertIn("FKID000001", ids)
 
+    def test_08_correlation(self):
+        print("Testing /api/correlation...")
+        req = urllib.request.Request(f"{BASE_URL}/correlation")
+        with urllib.request.urlopen(req) as response:
+            self.assertEqual(response.status, 200)
+            data = json.loads(response.read().decode('utf-8'))
+            self.assertIn("labels", data)
+            self.assertIn("matrix", data)
+            self.assertGreater(len(data["labels"]), 0)
+            self.assertEqual(len(data["labels"]), len(data["matrix"]))
+
 if __name__ == "__main__":
     unittest.main()

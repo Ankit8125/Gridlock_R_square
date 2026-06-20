@@ -1,10 +1,13 @@
 import os
+import json
 import joblib
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.model_selection import train_test_split, RandomizedSearchCV
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, GradientBoostingRegressor, GradientBoostingClassifier
+from sklearn.ensemble import HistGradientBoostingRegressor, HistGradientBoostingClassifier
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_absolute_error, accuracy_score, f1_score
@@ -41,14 +44,27 @@ def train_and_save_models():
     # Prep models directory
     models_dir = r"d:\Coding\gridlock\Round 2\backend\models"
     os.makedirs(models_dir, exist_ok=True)
+    
+    # Preprocessor with SimpleImputer for numerical values to handle coordinates NaNs robustly
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('cat', OneHotEncoder(handle_unknown='ignore', sparse_output=False), categorical_features),
+            ('num', SimpleImputer(strategy='median'), numerical_features)
+        ],
+        remainder='drop'
+    )
+
+    comparison_results = {
+        "regression": [],
+        "classification": []
+    }
 
     # ----------------------------------------------------
-    # 1. Train Duration Model (Regression)
+    # 1. Train & Tune Duration Models (Regression)
     # ----------------------------------------------------
-    print("\n--- Training Duration Model ---")
-    # Only train on rows where duration is trainable
+    print("\n--- Model Tuning & Selection for Duration (Regression) ---")
     df_duration = df_hv[df_hv['is_trainable_duration'] == True].copy()
-    print(f"Trainable duration rows for high-volume causes: {len(df_duration)}.")
+    print(f"Trainable duration rows: {len(df_duration)}.")
     
     X_dur = df_duration[features]
     y_dur = df_duration['duration_capped']
@@ -56,66 +72,190 @@ def train_and_save_models():
     X_train_dur, X_test_dur, y_train_dur, y_test_dur = train_test_split(
         X_dur, y_dur, test_size=0.2, random_state=42
     )
-    
-    # Preprocessor
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ('cat', OneHotEncoder(handle_unknown='ignore', sparse_output=False), categorical_features)
-        ],
-        remainder='passthrough'
-    )
-    
-    # Pipeline
-    duration_pipeline = Pipeline([
-        ('preprocessor', preprocessor),
-        ('regressor', RandomForestRegressor(n_estimators=100, max_depth=15, random_state=42, n_jobs=-1))
-    ])
-    
-    duration_pipeline.fit(X_train_dur, y_train_dur)
-    
-    # Evaluate
-    y_pred_dur = duration_pipeline.predict(X_test_dur)
-    mae = mean_absolute_error(y_test_dur, y_pred_dur)
-    median_err = np.median(np.abs(y_test_dur - y_pred_dur))
-    print(f"Duration Model MAE: {mae:.2f} minutes")
-    print(f"Duration Model Median Error: {median_err:.2f} minutes")
-    
-    # Save duration model
+
+    # Define candidate regressors and parameter grids
+    reg_candidates = [
+        {
+            "name": "Random Forest Regressor",
+            "model": RandomForestRegressor(random_state=42, n_jobs=-1),
+            "grid": {
+                "regressor__n_estimators": [100, 150, 200],
+                "regressor__max_depth": [8, 12, 16, None],
+                "regressor__min_samples_split": [2, 5, 10],
+                "regressor__min_samples_leaf": [1, 2, 4]
+            }
+        },
+        {
+            "name": "Gradient Boosting Regressor",
+            "model": GradientBoostingRegressor(random_state=42),
+            "grid": {
+                "regressor__n_estimators": [100, 150],
+                "regressor__learning_rate": [0.01, 0.05, 0.1, 0.2],
+                "regressor__max_depth": [3, 5, 8],
+                "regressor__min_samples_split": [2, 5],
+                "regressor__min_samples_leaf": [1, 2]
+            }
+        },
+        {
+            "name": "Hist Gradient Boosting Regressor",
+            "model": HistGradientBoostingRegressor(random_state=42),
+            "grid": {
+                "regressor__max_iter": [100, 150, 200],
+                "regressor__learning_rate": [0.01, 0.05, 0.1, 0.2],
+                "regressor__max_depth": [5, 8, 12],
+                "regressor__min_samples_leaf": [10, 20, 40]
+            }
+        }
+    ]
+
+    best_dur_score = float('inf')
+    best_dur_pipeline = None
+    best_dur_name = ""
+
+    for candidate in reg_candidates:
+        print(f"\nTuning {candidate['name']}...")
+        pipeline = Pipeline([
+            ('preprocessor', preprocessor),
+            ('regressor', candidate['model'])
+        ])
+        
+        search = RandomizedSearchCV(
+            pipeline, 
+            param_distributions=candidate['grid'], 
+            n_iter=8, 
+            cv=3, 
+            scoring='neg_mean_absolute_error', 
+            random_state=42, 
+            n_jobs=-1
+        )
+        search.fit(X_train_dur, y_train_dur)
+        
+        # Evaluate on test set
+        test_pred = search.predict(X_test_dur)
+        mae = mean_absolute_error(y_test_dur, test_pred)
+        median_err = np.median(np.abs(y_test_dur - test_pred))
+        
+        print(f"Best Params: {search.best_params_}")
+        print(f"Test MAE: {mae:.2f} minutes | Test Median Error: {median_err:.2f} minutes")
+        
+        comparison_results["regression"].append({
+            "model_name": candidate['name'],
+            "best_params": {k.replace("regressor__", ""): v for k, v in search.best_params_.items()},
+            "test_mae_minutes": float(mae),
+            "test_median_error_minutes": float(median_err)
+        })
+        
+        # We select the model that minimizes the test MAE
+        if mae < best_dur_score:
+            best_dur_score = mae
+            best_dur_pipeline = search.best_estimator_
+            best_dur_name = candidate['name']
+
+    print(f"\nWinner for Duration Model: {best_dur_name} (MAE: {best_dur_score:.2f} minutes)")
+    # Save the winner
     dur_model_path = os.path.join(models_dir, "duration_model.joblib")
-    joblib.dump(duration_pipeline, dur_model_path)
+    joblib.dump(best_dur_pipeline, dur_model_path)
     print(f"Duration model saved to {dur_model_path}")
 
     # ----------------------------------------------------
-    # 2. Train Priority Model (Classification)
+    # 2. Train & Tune Priority Models (Classification)
     # ----------------------------------------------------
-    print("\n--- Training Priority Model ---")
+    print("\n--- Model Tuning & Selection for Priority (Classification) ---")
     X_clf = df_hv[features]
-    y_clf = df_hv['priority_clean'] # 'high' or 'low'
+    y_clf = df_hv['priority_clean']
     
     X_train_clf, X_test_clf, y_train_clf, y_test_clf = train_test_split(
         X_clf, y_clf, test_size=0.2, random_state=42, stratify=y_clf
     )
-    
-    priority_pipeline = Pipeline([
-        ('preprocessor', preprocessor),
-        ('classifier', RandomForestClassifier(n_estimators=100, max_depth=15, random_state=42, n_jobs=-1))
-    ])
-    
-    priority_pipeline.fit(X_train_clf, y_train_clf)
-    
-    # Evaluate
-    y_pred_clf = priority_pipeline.predict(X_test_clf)
-    acc = accuracy_score(y_test_clf, y_pred_clf)
-    f1 = f1_score(y_test_clf, y_pred_clf, average='weighted')
-    print(f"Priority Model Accuracy: {acc:.2%}")
-    print(f"Priority Model F1 Score: {f1:.4f}")
-    
-    # Save priority model
+
+    clf_candidates = [
+        {
+            "name": "Random Forest Classifier",
+            "model": RandomForestClassifier(random_state=42, n_jobs=-1),
+            "grid": {
+                "classifier__n_estimators": [100, 120, 150],
+                "classifier__max_depth": [6, 10, 14, None],
+                "classifier__min_samples_split": [2, 4, 8],
+                "classifier__min_samples_leaf": [1, 2, 4]
+            }
+        },
+        {
+            "name": "Gradient Boosting Classifier",
+            "model": GradientBoostingClassifier(random_state=42),
+            "grid": {
+                "classifier__n_estimators": [100, 120],
+                "classifier__learning_rate": [0.01, 0.05, 0.1, 0.2],
+                "classifier__max_depth": [3, 5, 8],
+                "classifier__min_samples_split": [2, 4],
+                "classifier__min_samples_leaf": [1, 2]
+            }
+        },
+        {
+            "name": "Hist Gradient Boosting Classifier",
+            "model": HistGradientBoostingClassifier(random_state=42),
+            "grid": {
+                "classifier__max_iter": [100, 120],
+                "classifier__learning_rate": [0.01, 0.05, 0.1, 0.2],
+                "classifier__max_depth": [5, 8, 12],
+                "classifier__min_samples_leaf": [10, 20, 40]
+            }
+        }
+    ]
+
+    best_clf_score = 0.0
+    best_clf_pipeline = None
+    best_clf_name = ""
+
+    for candidate in clf_candidates:
+        print(f"\nTuning {candidate['name']}...")
+        pipeline = Pipeline([
+            ('preprocessor', preprocessor),
+            ('classifier', candidate['model'])
+        ])
+        
+        search = RandomizedSearchCV(
+            pipeline, 
+            param_distributions=candidate['grid'], 
+            n_iter=8, 
+            cv=3, 
+            scoring='f1_weighted', 
+            random_state=42, 
+            n_jobs=-1
+        )
+        search.fit(X_train_clf, y_train_clf)
+        
+        # Evaluate on test set
+        test_pred = search.predict(X_test_clf)
+        acc = accuracy_score(y_test_clf, test_pred)
+        f1 = f1_score(y_test_clf, test_pred, average='weighted')
+        
+        print(f"Best Params: {search.best_params_}")
+        print(f"Test Accuracy: {acc:.2%} | Test F1-Score: {f1:.4f}")
+        
+        comparison_results["classification"].append({
+            "model_name": candidate['name'],
+            "best_params": {k.replace("classifier__", ""): v for k, v in search.best_params_.items()},
+            "test_accuracy": float(acc),
+            "test_f1_score": float(f1)
+        })
+        
+        # We select the model that maximizes the test F1-score
+        if f1 > best_clf_score:
+            best_clf_score = f1
+            best_clf_pipeline = search.best_estimator_
+            best_clf_name = candidate['name']
+
+    print(f"\nWinner for Priority Model: {best_clf_name} (F1-Score: {best_clf_score:.4f})")
+    # Save the winner
     clf_model_path = os.path.join(models_dir, "priority_model.joblib")
-    joblib.dump(priority_pipeline, clf_model_path)
+    joblib.dump(best_clf_pipeline, clf_model_path)
     print(f"Priority model saved to {clf_model_path}")
-    
-    print("\nModel training and saving completed successfully!")
+
+    # Save results profile metadata
+    results_path = r"d:\Coding\gridlock\Round 2\backend\artifacts\model_comparison_results.json"
+    with open(results_path, 'w', encoding='utf-8') as f:
+        json.dump(comparison_results, f, indent=2)
+    print(f"\nModel comparison results saved to: {results_path}")
 
 if __name__ == "__main__":
     train_and_save_models()

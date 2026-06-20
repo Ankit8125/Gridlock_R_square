@@ -129,6 +129,52 @@ def get_analytics():
         "top_police_stations": police_stations
     }
 
+@app.get("/api/correlation")
+def get_correlation():
+    cleaned_csv = r"d:\Coding\gridlock\Round 2\backend\artifacts\cleaned_events.csv"
+    if not os.path.exists(cleaned_csv):
+        raise HTTPException(status_code=500, detail="Cleaned dataset not found.")
+        
+    try:
+        df = pd.read_csv(cleaned_csv)
+        # Select trainable subset for realistic durations
+        df_corr = df[df['is_trainable_duration'] == True].copy()
+        
+        # Convert categoricals to integers
+        df_corr['requires_road_closure_num'] = df_corr['requires_road_closure'].astype(int)
+        df_corr['priority_num'] = (df_corr['priority_clean'] == 'high').astype(int)
+        df_corr['cause_breakdown'] = (df_corr['event_cause_clean'] == 'vehicle_breakdown').astype(int)
+        df_corr['cause_accident'] = (df_corr['event_cause_clean'] == 'accident').astype(int)
+        df_corr['cause_construction'] = (df_corr['event_cause_clean'] == 'construction').astype(int)
+        df_corr['cause_water_logging'] = (df_corr['event_cause_clean'] == 'water_logging').astype(int)
+        df_corr['cause_potholes'] = (df_corr['event_cause_clean'] == 'pot_holes').astype(int)
+        df_corr['cause_tree_fall'] = (df_corr['event_cause_clean'] == 'tree_fall').astype(int)
+        
+        cols = [
+            'duration_capped', 'requires_road_closure_num', 'priority_num', 
+            'is_peak_hour', 'local_hour', 'local_day_of_week', 
+            'latitude', 'longitude', 'cause_breakdown', 'cause_accident',
+            'cause_construction', 'cause_water_logging', 'cause_potholes', 'cause_tree_fall'
+        ]
+        
+        labels = [
+            'Duration', 'Road Closure', 'Priority', 
+            'Peak Hour', 'Hour of Day', 'Day of Week', 
+            'Latitude', 'Longitude', 'Breakdown', 'Accident', 
+            'Construction', 'Water Logging', 'Potholes', 'Tree Fall'
+        ]
+        
+        corr_matrix = df_corr[cols].corr().fillna(0).values.tolist()
+        # Round correlation matrix for clean transfer
+        corr_matrix_rounded = [[round(val, 3) for val in row] for row in corr_matrix]
+        
+        return {
+            "labels": labels,
+            "matrix": corr_matrix_rounded
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to calculate correlation: {str(e)}")
+
 @app.get("/api/junctions")
 def get_junctions():
     return {"junctions": predictor.junctions}
