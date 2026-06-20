@@ -121,36 +121,56 @@ The system generates a Pearson correlation matrix from the cleaned dataset (acce
 
 ## 7. How to Setup & Run
 
+The repository already contains the pre-trained champion models (`.joblib`), enriched text maps, and correlation heatmaps. A developer cloning this repository **does not need to run data preprocessing or model training** to get started.
+
 ### Prerequisites
 * Python 3.10+
 * Node.js 18+
-* Install python requirements: `pip install pandas numpy scikit-learn joblib fastapi uvicorn pydantic`
-* Install client requirements: `cd client && npm install`
 
-### 1. Preprocess Data and Train Models
-If you want to recreate the artifacts and train the models from scratch:
+---
+
+### Option A: Quick Start (Run Instantly)
+
+1. **Install python packages**:
+   ```bash
+   pip install pandas numpy scikit-learn joblib fastapi uvicorn pydantic matplotlib
+   ```
+
+2. **Start the API Backend Server**:
+   ```bash
+   python backend/server.py
+   ```
+   *Loads the pre-trained models and runs on `http://127.0.0.1:8000`.*
+
+3. **Install client packages and start frontend**:
+   In a new terminal window:
+   ```bash
+   cd client
+   npm install
+   npm run dev
+   ```
+   *Builds the dashboard and runs on `http://localhost:5173`.*
+
+4. **Verify via Integration Tests**:
+   ```bash
+   python backend/test_suite.py
+   ```
+
+---
+
+### Option B: Pre-process & Re-train Models (Optional)
+Run these commands **only if** you update the raw dataset (`Astram event data_anonymized.csv`), change model hyperparameter spaces, or wish to reproduce training results:
+
 ```bash
+# 1. Clean dataset and convert UTC -> IST timezone
 python backend/data_pipeline.py
+
+# 2. Enrich bilingual descriptions
 python backend/text_enrichment.py
+
+# 3. Train, tune, and evaluate regressors & classifiers
 python backend/train_models.py
+
+# 4. Generate & save correlation heatmaps
 python backend/plot_correlation.py
 ```
-
-### 2. Start the API Backend
-```bash
-python backend/server.py
-```
-*Loads serialized models and serves the FastAPI application on `http://127.0.0.1:8000/api`.*
-
-### 3. Start the Vite React Frontend
-```bash
-cd client
-npm run dev
-```
-*Serves the glassmorphic dark-theme dashboard on `http://localhost:5173/`.*
-
-### 4. Run Integration Tests
-```bash
-python backend/test_suite.py
-```
-*Executes the 8-point suite testing server health, analytics distribution, predictors, feedback serialization, and correlation matrices.*
