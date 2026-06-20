@@ -60,6 +60,9 @@ class EventPredictor:
         self.adjustments_path = os.path.join(backend_dir, "artifacts", "policy_adjustments.json")
         self.load_adjustments()
 
+        # Weather cache
+        self._weather_cache = {}
+
         # Load database for similarity retrieval, junctions, hotspots, and corridor risks
         if os.path.exists(self.cleaned_csv):
             self.df = pd.read_csv(self.cleaned_csv)
@@ -247,10 +250,22 @@ class EventPredictor:
             })
         return allocations
 
-    def fetch_weather(self, lat: float, lon: float) -> dict:
+    def fetch_weather(self, lat: float, lon: float, force_fetch: bool = False) -> dict:
         """Fetch current weather data for coordinates using Open-Meteo API (free, no key required)."""
         import urllib.request
         import json
+        import time
+
+        lat_r = round(float(lat), 3)
+        lon_r = round(float(lon), 3)
+        cache_key = (lat_r, lon_r)
+        
+        # Check cache
+        if not force_fetch and hasattr(self, '_weather_cache') and cache_key in self._weather_cache:
+            ts, weather_dict = self._weather_cache[cache_key]
+            if time.time() - ts < 900:  # 15 minutes
+                return weather_dict
+
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=weather_code,rain,showers,temperature_2m"
         try:
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -276,7 +291,7 @@ class EventPredictor:
                 elif weather_code in [95, 96, 99]:
                     description = "Thunderstorm"
                     
-                return {
+                result = {
                     "temperature": temp,
                     "weather_code": weather_code,
                     "description": description,
@@ -284,8 +299,11 @@ class EventPredictor:
                     "rain_mm": rain + showers,
                     "source": "Open-Meteo"
                 }
+                if hasattr(self, '_weather_cache'):
+                    self._weather_cache[cache_key] = (time.time(), result)
+                return result
         except Exception as e:
-            return {
+            fallback = {
                 "temperature": 27.0,
                 "weather_code": 0,
                 "description": "Clear (Fallback)",
@@ -293,6 +311,9 @@ class EventPredictor:
                 "rain_mm": 0.0,
                 "source": "Fallback"
             }
+            if hasattr(self, '_weather_cache'):
+                self._weather_cache[cache_key] = (time.time() - 840, fallback)  # Cache fallback for 1 min
+            return fallback
 
     def generate_diversion_plan(self, cause: str, corridor: str, lat: float, lon: float, nearest_junctions: list, is_raining: bool) -> dict:
         """Generate a step-by-step tactical diversion plan for field officers using Gemini API."""
@@ -441,7 +462,9 @@ class EventPredictor:
                     corridor=row['corridor_clean'],
                     hour=int(row['local_hour']) if pd.notnull(row['local_hour']) else 9,
                     day_of_week=int(row['local_day_of_week']) if pd.notnull(row['local_day_of_week']) else 1,
-                    apply_adjustments=False
+                    apply_adjustments=False,
+                    generate_diversion=False,
+                    fetch_weather=False
                 )
                 
                 # Duration comparison
@@ -573,9 +596,9 @@ class EventPredictor:
             return None
 
     def predict_base(self, cause, event_type, lat, lon, requires_road_closure, corridor, hour, day_of_week):
-        return self.predict(cause, event_type, lat, lon, requires_road_closure, corridor, hour, day_of_week, apply_adjustments=False, generate_diversion=False)
+        return self.predict(cause, event_type, lat, lon, requires_road_closure, corridor, hour, day_of_week, apply_adjustments=False, generate_diversion=False, fetch_weather=False)
 
-    def predict(self, cause, event_type, lat, lon, requires_road_closure, corridor, hour, day_of_week, apply_adjustments=True, generate_diversion=True):
+    def predict(self, cause, event_type, lat, lon, requires_road_closure, corridor, hour, day_of_week, apply_adjustments=True, generate_diversion=True, fetch_weather=True):
         cause_clean = str(cause).strip().lower()
         event_type_clean = str(event_type).strip().lower()
         requires_closure_bool = str(requires_road_closure).strip().upper() == 'TRUE'
@@ -586,7 +609,17 @@ class EventPredictor:
         is_peak_hour = 1 if (8 <= hour <= 11) or (17 <= hour <= 20) else 0
 
         # Fetch current weather
-        weather = self.fetch_weather(float(lat), float(lon))
+        if fetch_weather:
+            weather = self.fetch_weather(float(lat), float(lon))
+        else:
+            weather = {
+                "temperature": 27.0,
+                "weather_code": 0,
+                "description": "Clear (Default)",
+                "is_raining": False,
+                "rain_mm": 0.0,
+                "source": "Default"
+            }
         is_raining = weather["is_raining"]
 
         # Construct input DataFrame for ML models
