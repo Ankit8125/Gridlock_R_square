@@ -9,7 +9,7 @@
         "max_depth": null
       },
       "test_mae_minutes": 2304.17462983111,
-      "test_median_error_minutes": 55.557008495833365
+      "test_median_error_minutes": 55.55700849583336
     },
     {
       "model_name": "Gradient Boosting Regressor",
@@ -40,35 +40,35 @@
       "model_name": "Random Forest Classifier",
       "best_params": {
         "n_estimators": 150,
-        "min_samples_split": 4,
-        "min_samples_leaf": 4,
-        "max_depth": 14
+        "min_samples_split": 2,
+        "min_samples_leaf": 1,
+        "max_depth": null
       },
-      "test_accuracy": 1.0,
-      "test_f1_score": 1.0
+      "test_accuracy": 0.9183929692404269,
+      "test_f1_score": 0.9176939949824027
     },
     {
       "model_name": "Gradient Boosting Classifier",
       "best_params": {
-        "n_estimators": 120,
+        "n_estimators": 100,
         "min_samples_split": 2,
         "min_samples_leaf": 1,
-        "max_depth": 3,
+        "max_depth": 5,
         "learning_rate": 0.2
       },
-      "test_accuracy": 1.0,
-      "test_f1_score": 1.0
+      "test_accuracy": 0.9190207156308852,
+      "test_f1_score": 0.9184872913688629
     },
     {
       "model_name": "Hist Gradient Boosting Classifier",
       "best_params": {
         "min_samples_leaf": 40,
         "max_iter": 100,
-        "max_depth": 8,
-        "learning_rate": 0.2
+        "max_depth": 12,
+        "learning_rate": 0.1
       },
-      "test_accuracy": 1.0,
-      "test_f1_score": 1.0
+      "test_accuracy": 0.9252981795354677,
+      "test_f1_score": 0.9245936542690348
     }
   ],
   "closure_classification": [

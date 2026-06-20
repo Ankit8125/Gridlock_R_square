@@ -652,8 +652,13 @@ class EventPredictor:
                 predicted_duration = 64.5
                 
             if self.priority_model:
-                predicted_priority = str(self.priority_model.predict(input_data)[0]).lower()
-                priority_probability = self._class_probability(self.priority_model, input_data, "high")
+                clf_features = [
+                    'event_cause_clean', 'event_type', 'latitude', 'longitude', 
+                    'police_station_clean', 'is_peak_hour', 'local_hour', 'local_day_of_week'
+                ]
+                input_data_clf = input_data[clf_features]
+                predicted_priority = str(self.priority_model.predict(input_data_clf)[0]).lower()
+                priority_probability = self._class_probability(self.priority_model, input_data_clf, "high")
             else:
                 predicted_priority = "high" if corridor_clean != 'Non-corridor' else "low"
                 priority_probability = 0.75 if predicted_priority == "high" else 0.25

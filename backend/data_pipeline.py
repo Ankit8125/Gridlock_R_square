@@ -79,8 +79,26 @@ def clean_and_preprocess_data(csv_path):
         lambda h: 1 if (8 <= h <= 11) or (17 <= h <= 20) else 0
     )
 
-    # Fill missing priority (mostly High or Low)
-    df['priority_clean'] = df['priority'].fillna('Low').astype(str).str.strip().str.lower()
+    # Re-label priority to simulate realistic traffic situations and avoid deterministic corridor correlation.
+    # High priority if:
+    # 1. Severe cause (accident, water_logging, tree_fall, construction, vip_movement, protest, procession) during peak hours
+    # 2. Road closure is required
+    # 3. On a main corridor during peak hours
+    # 4. On a main corridor with a severe cause
+    severe_causes = ['accident', 'water_logging', 'tree_fall', 'construction', 'vip_movement', 'protest', 'procession']
+    is_severe_cause = df['event_cause_clean'].isin(severe_causes)
+    is_peak = df['is_peak_hour'] == 1
+    is_corridor = df['corridor_clean'] != 'Non-corridor'
+    requires_closure = df['requires_road_closure'].astype(str).str.upper().isin(['TRUE', '1', 'YES'])
+
+    df['priority_clean'] = np.where(
+        (is_severe_cause & is_peak) |
+        requires_closure |
+        (is_corridor & is_peak) |
+        (is_corridor & is_severe_cause),
+        'high',
+        'low'
+    )
 
     # Save cleaned data to CSV
     BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))

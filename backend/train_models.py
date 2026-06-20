@@ -32,7 +32,7 @@ def train_and_save_models():
     df_hv = df[df['event_cause_clean'].isin(HIGH_VOLUME_CAUSES)].copy()
     print(f"High-volume causes dataset size: {len(df_hv)} rows.")
 
-    # Features list
+    # Features list (for duration and road closure models)
     features = [
         'event_cause_clean', 'event_type', 'latitude', 'longitude', 
         'police_station_clean', 'corridor_clean', 'is_peak_hour', 
@@ -41,6 +41,15 @@ def train_and_save_models():
     
     categorical_features = ['event_cause_clean', 'event_type', 'police_station_clean', 'corridor_clean']
     numerical_features = ['latitude', 'longitude', 'is_peak_hour', 'local_hour', 'local_day_of_week']
+
+    # Features list (for priority classification model - corridor_clean is excluded)
+    features_clf = [
+        'event_cause_clean', 'event_type', 'latitude', 'longitude', 
+        'police_station_clean', 'is_peak_hour', 'local_hour', 'local_day_of_week'
+    ]
+    
+    categorical_features_clf = ['event_cause_clean', 'event_type', 'police_station_clean']
+    numerical_features_clf = ['latitude', 'longitude', 'is_peak_hour', 'local_hour', 'local_day_of_week']
 
     # Prep models directory
     models_dir = os.path.join(BACKEND_DIR, "models")
@@ -51,6 +60,15 @@ def train_and_save_models():
         transformers=[
             ('cat', OneHotEncoder(handle_unknown='ignore', sparse_output=False), categorical_features),
             ('num', SimpleImputer(strategy='median'), numerical_features)
+        ],
+        remainder='drop'
+    )
+
+    # Preprocessor specifically for Priority model (excludes corridor_clean)
+    preprocessor_clf = ColumnTransformer(
+        transformers=[
+            ('cat', OneHotEncoder(handle_unknown='ignore', sparse_output=False), categorical_features_clf),
+            ('num', SimpleImputer(strategy='median'), numerical_features_clf)
         ],
         remainder='drop'
     )
@@ -163,7 +181,7 @@ def train_and_save_models():
     # 2. Train & Tune Priority Models (Classification)
     # ----------------------------------------------------
     print("\n--- Model Tuning & Selection for Priority (Classification) ---")
-    X_clf = df_hv[features]
+    X_clf = df_hv[features_clf]
     y_clf = df_hv['priority_clean']
     
     X_train_clf, X_test_clf, y_train_clf, y_test_clf = train_test_split(
@@ -211,7 +229,7 @@ def train_and_save_models():
     for candidate in clf_candidates:
         print(f"\nTuning {candidate['name']}...")
         pipeline = Pipeline([
-            ('preprocessor', preprocessor),
+            ('preprocessor', preprocessor_clf),
             ('classifier', candidate['model'])
         ])
         
