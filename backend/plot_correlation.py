@@ -4,7 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def generate_correlation_heatmap():
-    cleaned_csv = r"d:\Coding\gridlock\Round 2\backend\artifacts\cleaned_events.csv"
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+    cleaned_csv = os.path.join(SCRIPT_DIR, "artifacts", "cleaned_events.csv")
     if not os.path.exists(cleaned_csv):
         print("Cleaned dataset not found. Run pipeline first.")
         return
@@ -75,15 +76,25 @@ def generate_correlation_heatmap():
     ax.set_title("ASTRAM Traffic Obstruction - Feature Correlation Heatmap", fontsize=14, fontweight='bold', pad=20, color='#fff')
     plt.tight_layout()
     
-    # Save to backend artifacts and direct brain artifacts directory
-    os.makedirs(r"d:\Coding\gridlock\Round 2\backend\artifacts", exist_ok=True)
-    os.makedirs(r"C:\Users\ANKIT\.gemini\antigravity-ide\brain\52cc6171-4e1f-491f-854e-290800e6fe43", exist_ok=True)
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+    local_artifacts = os.path.join(SCRIPT_DIR, "artifacts")
+    os.makedirs(local_artifacts, exist_ok=True)
     
-    local_img_path = r"d:\Coding\gridlock\Round 2\backend\artifacts\correlation_heatmap.png"
-    artifact_img_path = r"C:\Users\ANKIT\.gemini\antigravity-ide\brain\52cc6171-4e1f-491f-854e-290800e6fe43\correlation_heatmap.png"
-    
+    local_img_path = os.path.join(local_artifacts, "correlation_heatmap.png")
     plt.savefig(local_img_path, dpi=150, bbox_inches='tight')
-    plt.savefig(artifact_img_path, dpi=150, bbox_inches='tight')
+    
+    # Try to copy to the active Gemini brain artifacts folder for user visibility
+    home = os.path.expanduser("~")
+    convo_id = "c1cc2f59-b286-468b-a54f-114598e39315"
+    artifact_dir = os.path.join(home, ".gemini", "antigravity-ide", "brain", convo_id)
+    artifact_img_path = None
+    if os.path.exists(artifact_dir):
+        artifact_img_path = os.path.join(artifact_dir, "correlation_heatmap.png")
+        plt.savefig(artifact_img_path, dpi=150, bbox_inches='tight')
+        print(f"Heatmap saved to Local and Artifact: {artifact_img_path}")
+    else:
+        print(f"Heatmap saved to Local: {local_img_path}")
+        
     plt.close()
     
     print(f"Heatmap plotted and saved to:\n  - Local: {local_img_path}\n  - Artifact: {artifact_img_path}")

@@ -1,7 +1,9 @@
+import os
 import pandas as pd
 import numpy as np
 
-cleaned_csv = r"d:\Coding\gridlock\Round 2\backend\artifacts\cleaned_events.csv"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+cleaned_csv = os.path.join(SCRIPT_DIR, "backend", "artifacts", "cleaned_events.csv")
 df = pd.read_csv(cleaned_csv)
 
 print("Priority counts:")
