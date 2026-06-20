@@ -210,6 +210,26 @@ class EventPredictor:
             print(f"Surge detection error: {e}")
             return []
 
+    def get_station_allocation(self, lat: float, lon: float, total_officers: int, k: int = 3) -> list:
+        """Find k nearest police stations and allocate officers proportionally by inverse distance."""
+        if not self._station_latlon or total_officers == 0:
+            return []
+        station_distances = []
+        for station, (slat, slon) in self._station_latlon.items():
+            dist = haversine_meters(lat, lon, slat, slon)
+            station_distances.append((station, dist))
+        station_distances.sort(key=lambda x: x[1])
+        nearest = station_distances[:k]
+        total_inv = sum(1.0 / max(d, 1) for _, d in nearest) or 1.0
+        allocations = []
+        remaining = total_officers
+        for i, (station, dist) in enumerate(nearest):
+            if i == len(nearest) - 1:
+                count = max(0, remaining)
+            else:
+                weight = (1.0 / max(dist, 1)) / total_inv
+                count = max(1, round(total_officers * weight))
+                remaining -= count
             allocations.append({
                 "station": station,
                 "officers": count,
