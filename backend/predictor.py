@@ -210,26 +210,6 @@ class EventPredictor:
             print(f"Surge detection error: {e}")
             return []
 
-    def get_station_allocation(self, lat: float, lon: float, total_officers: int, k: int = 3) -> list:
-        """Find k nearest police stations and allocate officers proportionally by inverse distance."""
-        if not self._station_latlon or total_officers == 0:
-            return []
-        station_distances = []
-        for station, (slat, slon) in self._station_latlon.items():
-            dist = haversine_meters(lat, lon, slat, slon)
-            station_distances.append((station, dist))
-        station_distances.sort(key=lambda x: x[1])
-        nearest = station_distances[:k]
-        total_inv = sum(1.0 / max(d, 1) for _, d in nearest) or 1.0
-        allocations = []
-        remaining = total_officers
-        for i, (station, dist) in enumerate(nearest):
-            if i == len(nearest) - 1:
-                count = max(0, remaining)
-            else:
-                weight = (1.0 / max(dist, 1)) / total_inv
-                count = max(1, round(total_officers * weight))
-                remaining -= count
             allocations.append({
                 "station": station,
                 "officers": count,
@@ -237,9 +217,155 @@ class EventPredictor:
             })
         return allocations
 
+    def fetch_weather(self, lat: float, lon: float) -> dict:
+        """Fetch current weather data for coordinates using Open-Meteo API (free, no key required)."""
+        import urllib.request
+        import json
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=weather_code,rain,showers,temperature_2m"
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=3.0) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                current = data.get("current", {})
+                weather_code = current.get("weather_code", 0)
+                rain = current.get("rain", 0.0)
+                showers = current.get("showers", 0.0)
+                temp = current.get("temperature_2m", 25.0)
+                
+                # Interpret WMO codes
+                is_raining = rain > 0.0 or showers > 0.0 or weather_code >= 51
+                description = "Clear"
+                if weather_code in [1, 2, 3]:
+                    description = "Cloudy"
+                elif weather_code in [45, 48]:
+                    description = "Foggy"
+                elif weather_code in [51, 53, 55]:
+                    description = "Drizzle"
+                elif weather_code in [61, 63, 65, 80, 81, 82]:
+                    description = "Rainy"
+                elif weather_code in [95, 96, 99]:
+                    description = "Thunderstorm"
+                    
+                return {
+                    "temperature": temp,
+                    "weather_code": weather_code,
+                    "description": description,
+                    "is_raining": is_raining,
+                    "rain_mm": rain + showers,
+                    "source": "Open-Meteo"
+                }
+        except Exception as e:
+            return {
+                "temperature": 27.0,
+                "weather_code": 0,
+                "description": "Clear (Fallback)",
+                "is_raining": False,
+                "rain_mm": 0.0,
+                "source": "Fallback"
+            }
+
+    def generate_diversion_plan(self, cause: str, corridor: str, lat: float, lon: float, nearest_junctions: list, is_raining: bool) -> dict:
+        """Generate a step-by-step tactical diversion plan for field officers."""
+        import os
+        import urllib.request
+        import json
+
+        cause_clean = str(cause).strip().lower()
+        corridor_clean = str(corridor).strip()
+        if not corridor_clean or corridor_clean == 'nan':
+            corridor_clean = 'Non-corridor'
+
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if api_key:
+            prompt = (
+                f"You are the ASTRAM Traffic Command Center AI for Bengaluru. "
+                f"An event of type '{cause_clean}' occurred on corridor '{corridor_clean}' at coordinates ({lat}, {lon}). "
+                f"The nearest traffic junctions are: {', '.join([j['name'] for j in nearest_junctions])}. "
+                f"Current weather is {'Rainy' if is_raining else 'Clear'}. "
+                f"Provide a tactical diversion plan in JSON format with two keys: "
+                f"1. 'summary': A concise 1-sentence briefing summary. "
+                f"2. 'steps': A list of 3-4 specific tactical steps for police constables "
+                f"directing traffic at the nearest junctions (using the junction names provided). "
+                f"Respond ONLY with raw JSON."
+            )
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+            try:
+                body = {
+                    "contents": [{
+                        "parts": [{"text": prompt}]
+                    }],
+                    "generationConfig": {
+                        "responseMimeType": "application/json"
+                    }
+                }
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(body).encode('utf-8'),
+                    headers={'Content-Type': 'application/json'}
+                )
+                with urllib.request.urlopen(req, timeout=5.0) as response:
+                    res_data = json.loads(response.read().decode('utf-8'))
+                    text = res_data['candidates'][0]['content']['parts'][0]['text']
+                    plan = json.loads(text)
+                    if "summary" in plan and "steps" in plan:
+                        return plan
+            except Exception as e:
+                print(f"Gemini API error: {e}, falling back to rule-based.")
+
+        # Heuristic fallback
+        j1 = nearest_junctions[0]['name'] if len(nearest_junctions) > 0 else "Nearest Checkpoint"
+        j2 = nearest_junctions[1]['name'] if len(nearest_junctions) > 1 else "Secondary Link Junction"
+        j3 = nearest_junctions[2]['name'] if len(nearest_junctions) > 2 else "Outer Loop Junction"
+
+        steps = []
+        if cause_clean == 'accident':
+            summary = f"Accident on {corridor_clean} requires immediate local diversion to clear lanes."
+            steps = [
+                f"Stage emergency vehicles and a heavy tow-crane at {j1} to expedite vehicle removal.",
+                f"Close affected lanes and redirect light vehicular traffic via {j2} to prevent backup.",
+                f"Deploy 2 manual signal override constables at {j3} to clear downstream spillover."
+            ]
+        elif cause_clean == 'water_logging':
+            summary = f"Waterlogging on {corridor_clean} has reduced road capacity; diverting heavy traffic."
+            steps = [
+                f"Erect high-visibility warning barricades at {j1} to indicate deep water zones.",
+                f"Divert all heavy commercial vehicles at {j2} onto the elevated bypass or outer loop.",
+                f"Deploy BBMP pump coordination team at {j1} and manual traffic routing at {j3}."
+            ]
+        elif cause_clean in ['protest', 'procession', 'public_event']:
+            summary = f"Public gathering on {corridor_clean} requires a wider perimeter corridor closure."
+            steps = [
+                f"Enforce full road closure at {j1}; restrict transit of all private passenger vehicles.",
+                f"Establish major diversion points at {j2} and {j3} redirecting traffic towards parallel arterials.",
+                f"Coordinate with local station patrol cars to manage pedestrian spillover safely."
+            ]
+        elif cause_clean == 'construction':
+            summary = f"Ongoing construction on {corridor_clean} causes bottlenecks; staging lane restrictions."
+            steps = [
+                f"Place reflective traffic cones and safety hazard markers at {j1} to merge lanes safely.",
+                f"Redirect peak-hour traffic volumes at {j2} to secondary arterial routes.",
+                f"Deploy constable at {j3} during morning/evening peaks to override standard timers."
+            ]
+        else:
+            summary = f"Traffic obstruction at {corridor_clean} coordinates {lat:.4f}, {lon:.4f}; active monitoring."
+            steps = [
+                f"Deploy a field scout to {j1} to assess the bottleneck size and severity.",
+                f"If tailbacks exceed 500m, initiate soft diversion at {j2} towards outer link roads.",
+                f"Ensure signal cycle extension at {j3} is active to flush outbound traffic."
+            ]
+
+        if is_raining:
+            summary = "🌧️ [Rain Alert] " + summary
+            steps.append("Increase all signal green times by 20% to account for wet-weather speed reduction.")
+
+        return {
+            "summary": summary,
+            "steps": steps
+        }
+
     def compute_cascade_probability(self, is_high_priority: bool, closure_recommended: bool,
                                     cause: str, corridor: str, is_peak_hour: bool,
-                                    predicted_duration: float) -> dict:
+                                    predicted_duration: float, is_raining: bool = False) -> dict:
         """Estimate probability this incident cascades to neighboring junctions and time to escalation."""
         base = 0.10
         if is_high_priority:
@@ -247,6 +373,8 @@ class EventPredictor:
         if closure_recommended:
             base += 0.20
         if is_peak_hour:
+            base += 0.15
+        if is_raining:
             base += 0.15
         from backend.impact_scoring import ARTERIAL_CORRIDORS, HIGH_RISK_CAUSES
         if str(corridor).strip().lower() in ARTERIAL_CORRIDORS or 'orr' in str(corridor).lower():
@@ -475,6 +603,10 @@ class EventPredictor:
             
         is_peak_hour = 1 if (8 <= hour <= 11) or (17 <= hour <= 20) else 0
 
+        # Fetch current weather
+        weather = self.fetch_weather(float(lat), float(lon))
+        is_raining = weather["is_raining"]
+
         # Construct input DataFrame for ML models
         input_data = pd.DataFrame([{
             'event_cause_clean': cause_clean,
@@ -590,6 +722,12 @@ class EventPredictor:
         elif cause_clean == 'accident':
             barricades_count += 3
 
+        # Apply weather-based increases if it is raining
+        if is_raining:
+            predicted_duration = predicted_duration * 1.25  # +25% duration
+            pc_count += 1
+            barricades_count += 5
+
         # Apply Feedback Learning Adjustments if requested
         if apply_adjustments:
             manpower_mul = self.multipliers.get("manpower_multiplier", 1.0)
@@ -624,6 +762,9 @@ class EventPredictor:
                     risk = 15
                 else:
                     risk = 5
+            
+            if is_raining:
+                risk = min(95, risk + 10)  # +10% risk in rain
             j['spillover_risk_percentage'] = risk
 
         # Compute Conformal Prediction Interval (Uncertainty bounds using decision tree predictions variance)
@@ -673,12 +814,23 @@ class EventPredictor:
             cause=cause_clean,
             corridor=corridor_clean,
             is_peak_hour=bool(is_peak_hour),
-            predicted_duration=predicted_duration
+            predicted_duration=predicted_duration,
+            is_raining=is_raining
         )
 
         # Station-level officer allocation
         total_officers = si_count + hc_count + pc_count
         station_allocations = self.get_station_allocation(float(lat), float(lon), total_officers, k=3)
+
+        # Generate diversion plan
+        diversion_plan = self.generate_diversion_plan(
+            cause=cause_clean,
+            corridor=corridor_clean,
+            lat=float(lat),
+            lon=float(lon),
+            nearest_junctions=nearest_junctions,
+            is_raining=is_raining
+        )
 
         result = {
             "predicted_duration_minutes": round(predicted_duration, 1) if predicted_duration else None,
@@ -700,6 +852,8 @@ class EventPredictor:
             "cascade": cascade,
             "data_basis": data_basis,
             "requires_road_closure": requires_closure_bool,
+            "weather": weather,
+            "diversion_plan": diversion_plan,
             "resources": {
                 "manpower": {
                     "sub_inspector": si_count,
