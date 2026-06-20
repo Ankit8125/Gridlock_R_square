@@ -28,9 +28,20 @@ export default function AICommandAgent() {
   const [progressLog, setProgressLog] = useState([]);
   const [result, setResult] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [demoMode, setDemoMode] = useState(true);
 
   const runProgressSimulation = async () => {
-    const logs = [
+    const logs = demoMode ? [
+      "🔍 [Demo Mode] Initializing ASTRAM offline Pipeline...",
+      "🧠 [Demo Mode] Mapped mock NLP incident entities...",
+      "🌐 [Demo Mode] Mapped mock coordinates & corridor names...",
+      "🌤️ Querying real-time weather from Open-Meteo service...",
+      "⚡ Injecting weather modifiers and running XGBoost clearance predictor...",
+      "🚓 Calculating inverse-distance station police allocations...",
+      "🚧 Mapping nearest tactical spillover junctions...",
+      "📋 Compiling mock tactical diversion instructions...",
+      "✍️ Drafting mock radio dispatch orders..."
+    ] : [
       "🔍 Initializing ASTRAM Agentic Pipeline...",
       "🧠 Performing Natural Language parsing and entity extraction...",
       "🌐 Geolocating incident coordinates & corridor mappings...",
@@ -60,7 +71,7 @@ export default function AICommandAgent() {
     await runProgressSimulation();
 
     try {
-      const res = await fetch(`${API_BASE}/agent/command`, {
+      const res = await fetch(`${API_BASE}/agent/command?testing=${demoMode}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text_report: reportText })
@@ -142,6 +153,18 @@ export default function AICommandAgent() {
                     </button>
                   ))}
                 </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem' }}>
+                <input
+                  type="checkbox"
+                  id="demoMode"
+                  checked={demoMode}
+                  onChange={(e) => setDemoMode(e.target.checked)}
+                  disabled={isProcessing}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <label htmlFor="demoMode" style={{ fontSize: '12px', color: '#c7d2fe', cursor: 'pointer', fontWeight: '500' }}>
+                  Demo Mode (Offline / Mock Gemini responses to bypass API rate limits)
+                </label>
               </div>
 
               <button type="submit" className="btn-primary" disabled={isProcessing || !reportText.trim()}>

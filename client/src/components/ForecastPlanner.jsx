@@ -28,6 +28,7 @@ export default function ForecastPlanner() {
   const [prediction, setPrediction] = useState(null);
   const [isPredicting, setIsPredicting] = useState(false);
   const [routingSource, setRoutingSource] = useState("OSRM");
+  const [demoMode, setDemoMode] = useState(true);
 
   // What-if state
   const [whatIfBarricades, setWhatIfBarricades] = useState(0);
@@ -181,7 +182,7 @@ export default function ForecastPlanner() {
     setIsPredicting(true);
     setPrediction(null);
     try {
-      const res = await fetch(`${API_BASE}/predict`, {
+      const res = await fetch(`${API_BASE}/predict?testing=${demoMode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -452,6 +453,18 @@ export default function ForecastPlanner() {
                 <option value="6">Sunday</option>
               </select>
             </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', marginTop: '0.5rem' }}>
+            <input
+              type="checkbox"
+              id="demoMode"
+              checked={demoMode}
+              onChange={(e) => setDemoMode(e.target.checked)}
+              disabled={isPredicting}
+              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+            />
+            <label htmlFor="demoMode" style={{ fontSize: '12px', color: '#c7d2fe', cursor: 'pointer', fontWeight: '500' }}>
+              Demo Mode (Offline / Mock Gemini responses to bypass API rate limits)
+            </label>
           </div>
 
           <button type="submit" className="btn-primary" disabled={isPredicting}>
