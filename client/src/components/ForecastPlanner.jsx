@@ -1,8 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { Info, Users, AlertTriangle } from 'lucide-react';
+import { Info, Users, AlertTriangle, Zap, Download, TrendingDown, CloudRain, Compass } from 'lucide-react';
 
 const API_BASE = "http://127.0.0.1:8000/api";
+
+const formatMinutes = (mins) => {
+  if (!mins) return "N/A";
+  if (mins < 60) return `${Math.round(mins)} min`;
+  const hrs = Math.floor(mins / 60);
+  const remMins = Math.round(mins % 60);
+  return remMins > 0 ? `${hrs}h ${remMins}m` : `${hrs}h`;
+};
+
 
 export default function ForecastPlanner() {
   // Form State
@@ -19,6 +28,13 @@ export default function ForecastPlanner() {
   const [prediction, setPrediction] = useState(null);
   const [isPredicting, setIsPredicting] = useState(false);
   const [routingSource, setRoutingSource] = useState("OSRM");
+
+  // What-if state
+  const [whatIfBarricades, setWhatIfBarricades] = useState(0);
+  const [whatIfOfficers, setWhatIfOfficers] = useState(0);
+  const [whatIfCloseRoad, setWhatIfCloseRoad] = useState(false);
+  const [whatIfResult, setWhatIfResult] = useState(null);
+  const [isSimulating, setIsSimulating] = useState(false);
 
   // Map references
   const plannerMapRef = useRef(null);
@@ -188,12 +204,136 @@ export default function ForecastPlanner() {
     }
   };
 
-  const formatMinutes = (mins) => {
-    if (!mins) return "N/A";
-    if (mins < 60) return `${Math.round(mins)} min`;
-    const hrs = Math.floor(mins / 60);
-    const remMins = Math.round(mins % 60);
-    return remMins > 0 ? `${hrs}h ${remMins}m` : `${hrs}h`;
+  const handleWhatIf = async () => {
+    if (!prediction) return;
+    setIsSimulating(true);
+    try {
+      const res = await fetch(`${API_BASE}/what-if`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cause, event_type: eventType,
+          latitude: parseFloat(latitude), longitude: parseFloat(longitude),
+          requires_road_closure: requiresClosure, corridor,
+          hour: parseInt(hour), day_of_week: parseInt(dayOfWeek),
+          extra_barricades: whatIfBarricades,
+          extra_officers: whatIfOfficers,
+          close_road: whatIfCloseRoad,
+        })
+      });
+      const data = await res.json();
+      setWhatIfResult(data.simulation);
+    } catch (err) {
+      console.error("What-if failed", err);
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  const handlePDFExport = () => {
+    if (!prediction) return;
+    const cascade = prediction.cascade || {};
+    const manpower = prediction.resources?.manpower || {};
+    const allocations = prediction.resources?.station_allocations || [];
+    const junctions = prediction.nearest_junction_checkpoints || [];
+
+    const printContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>BTP Dispatch Order</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 24px; color: #111; }
+    h1 { color: #1e40af; border-bottom: 2px solid #1e40af; padding-bottom: 8px; }
+    h2 { color: #374151; font-size: 14px; margin-top: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { padding: 8px 12px; text-align: left; border: 1px solid #d1d5db; }
+    th { background: #eff6ff; font-weight: 700; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px; }
+    .high { background: #fee2e2; color: #b91c1c; }
+    .low { background: #dcfce7; color: #15803d; }
+    .section { margin-bottom: 20px; padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px; }
+    .meta { color: #6b7280; font-size: 12px; margin-bottom: 16px; }
+    @media print { body { margin: 0; } }
+  </style>
+</head>
+<body>
+  <h1>🚦 Bengaluru Traffic Police — Dispatch Order</h1>
+  <div class="meta">
+    Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST &nbsp;|&nbsp;
+    Location: ${latitude}, ${longitude} &nbsp;|&nbsp;
+    Cause: ${cause.replace(/_/g, ' ')} &nbsp;|&nbsp;
+    Corridor: ${corridor}
+  </div>
+
+  <div class="section">
+    <h2>INCIDENT FORECAST</h2>
+    <table>
+      <tr><th>Parameter</th><th>Value</th></tr>
+      <tr><td>Predicted Duration</td><td>${formatMinutes(prediction.predicted_duration_minutes)}</td></tr>
+      <tr><td>90% Confidence Interval</td><td>${formatMinutes(prediction.predicted_duration_interval?.min)} – ${formatMinutes(prediction.predicted_duration_interval?.max)}</td></tr>
+      <tr><td>Priority</td><td>${prediction.predicted_priority}</td></tr>
+      <tr><td>Impact Score</td><td>${prediction.impact?.score}/100 (${prediction.impact?.class})</td></tr>
+      <tr><td>Cascade Probability</td><td>${Math.round((cascade.cascade_probability || 0) * 100)}% (${cascade.cascade_class})</td></tr>
+      ${cascade.point_of_no_return_minutes ? `<tr><td>Point of No Return</td><td>${cascade.point_of_no_return_minutes} minutes</td></tr>` : ''}
+      <tr><td>Road Closure Recommended</td><td>${prediction.closure_recommended ? 'Yes' : 'No'}</td></tr>
+      ${prediction.weather ? `<tr><td>Live Weather</td><td>${prediction.weather.description} (${prediction.weather.temperature}°C, Precipitation: ${prediction.weather.rain_mm} mm)</td></tr>` : ''}
+    </table>
+  </div>
+
+  ${prediction.diversion_plan ? `
+  <div class="section">
+    <h2>TACTICAL DIVERSION PLAN</h2>
+    <p style="font-weight:700;margin-bottom:8px;font-size:13px;color:#1e40af;">${prediction.diversion_plan.summary}</p>
+    <ol style="margin-left:20px;padding-left:0;font-size:12px;line-height:1.5;">
+      ${prediction.diversion_plan.steps.map(s => `<li style="margin-bottom:4px;">${s}</li>`).join('')}
+    </ol>
+  </div>` : ''}
+
+  <div class="section">
+    <h2>RESOURCE DEPLOYMENT ORDER</h2>
+    <table>
+      <tr><th>Rank</th><th>Count</th></tr>
+      <tr><td>Sub-Inspector (SI)</td><td>${manpower.sub_inspector}</td></tr>
+      <tr><td>Head Constable (HC)</td><td>${manpower.head_constable}</td></tr>
+      <tr><td>Police Constable (PC)</td><td>${manpower.constable}</td></tr>
+      <tr><td><strong>Total Officers</strong></td><td><strong>${manpower.total_officers}</strong></td></tr>
+      <tr><td>Barricades</td><td>${prediction.resources?.barricades}</td></tr>
+    </table>
+  </div>
+
+  ${allocations.length > 0 ? `
+  <div class="section">
+    <h2>STATION DEPLOYMENT ALLOCATION</h2>
+    <table>
+      <tr><th>Police Station</th><th>Officers to Deploy</th><th>Distance</th></tr>
+      ${allocations.map(a => `<tr><td>${a.station}</td><td>${a.officers}</td><td>${(a.distance_meters/1000).toFixed(1)} km</td></tr>`).join('')}
+    </table>
+  </div>` : ''}
+
+  ${junctions.length > 0 ? `
+  <div class="section">
+    <h2>DIVERSION CONTROL POINTS</h2>
+    <table>
+      <tr><th>Junction</th><th>Distance</th><th>Spillover Risk</th></tr>
+      ${junctions.map(j => `<tr><td>${j.name}</td><td>${j.distance_meters}m</td><td>${j.spillover_risk_percentage}%</td></tr>`).join('')}
+    </table>
+  </div>` : ''}
+
+  <div class="section">
+    <h2>AI REASONING</h2>
+    <ul>${(prediction.impact?.explanations || []).map(e => `<li>${e}</li>`).join('')}</ul>
+  </div>
+
+  <p style="color:#9ca3af;font-size:11px;margin-top:24px;">ASTRAM Intelligence Platform — Bengaluru Traffic Police &nbsp;|&nbsp; Confidential</p>
+</body>
+</html>`.trim();
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => { printWindow.print(); }, 500);
   };
 
   return (
@@ -419,7 +559,100 @@ export default function ForecastPlanner() {
               </div>
             )}
 
-            {/* Resources */}
+            {/* Live Weather Widget */}
+            {prediction.weather && (
+              <div className="result-card" style={{ marginBottom: '1rem', background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <CloudRain size={16} color="#3b82f6" />
+                    <span style={{ fontWeight: '700', fontSize: '0.9rem', color: '#93c5fd' }}>Current Weather Conditions</span>
+                  </div>
+                  <span className={`badge ${prediction.weather.is_raining ? 'badge-high' : 'badge-low'}`}>
+                    {prediction.weather.is_raining ? 'Rain Impact active' : 'Clear weather'}
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
+                  <div>
+                    <div style={{ fontSize: '10px', color: '#94a3b8' }}>Weather Status</div>
+                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#f8fafc' }}>{prediction.weather.description}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '10px', color: '#94a3b8' }}>Temperature / Precipitation</div>
+                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#f8fafc' }}>{prediction.weather.temperature}°C &nbsp;|&nbsp; {prediction.weather.rain_mm} mm</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Cascade Probability */}
+            {prediction.cascade && (
+              <div className="result-card" style={{ marginBottom: '1rem',
+                border: `1px solid ${
+                  prediction.cascade.cascade_class === 'Critical' ? 'rgba(239,68,68,0.5)' :
+                  prediction.cascade.cascade_class === 'High' ? 'rgba(249,115,22,0.4)' :
+                  'rgba(99,102,241,0.3)'
+                }`
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <div className="panel-title" style={{ fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Zap size={14} color="#f59e0b" />
+                    Cascade & Escalation Risk
+                  </div>
+                  <span className={`badge ${
+                    prediction.cascade.cascade_class === 'Critical' ? 'badge-high' : 'badge-low'
+                  }`}>{prediction.cascade.cascade_class}</span>
+                </div>
+                <div className="resource-grid">
+                  <div className="resource-item">
+                    <div className="resource-title">Cascade Probability</div>
+                    <div className="resource-value" style={{
+                      color: prediction.cascade.cascade_probability >= 0.7 ? '#ef4444' :
+                             prediction.cascade.cascade_probability >= 0.5 ? '#f97316' : '#6366f1'
+                    }}>
+                      {Math.round(prediction.cascade.cascade_probability * 100)}%
+                    </div>
+                  </div>
+                  {prediction.cascade.point_of_no_return_minutes && (
+                    <div className="resource-item" style={{ border: '1px solid rgba(239,68,68,0.35)' }}>
+                      <div className="resource-title" style={{ color: '#fca5a5' }}>⏱ Point of No Return</div>
+                      <div className="resource-value" style={{ color: '#ef4444' }}>
+                        {prediction.cascade.point_of_no_return_minutes} min
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px' }}>Act before this window closes</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Station-level Allocation */}
+            {prediction.resources?.station_allocations?.length > 0 && (
+              <div className="result-card" style={{ marginBottom: '1rem' }}>
+                <div className="panel-title" style={{ fontSize: '0.9rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Users size={14} color="#10b981" />
+                  Station Deployment Allocation
+                </div>
+                {prediction.resources.station_allocations.map((alloc, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '8px 12px', marginBottom: '6px',
+                    background: 'rgba(16,185,129,0.06)',
+                    border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px'
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '12px', fontWeight: '700', color: '#e2e8f0' }}>{alloc.station}</div>
+                      <div style={{ fontSize: '10px', color: '#64748b' }}>{(alloc.distance_meters / 1000).toFixed(1)} km away</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '800', color: '#10b981' }}>{alloc.officers}</div>
+                      <div style={{ fontSize: '10px', color: '#64748b' }}>officers</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Resources (existing) */}
             <div className="result-card" style={{ marginBottom: '1rem' }}>
               <div className="panel-title" style={{ fontSize: '0.9rem', marginBottom: '0.75rem' }}>Recommended Deployment Plan</div>
               <div className="resources-panel">
@@ -452,6 +685,29 @@ export default function ForecastPlanner() {
                 </div>
               </div>
             </div>
+
+            {/* Tactical Diversion Plan */}
+            {prediction.diversion_plan && (
+              <div className="result-card" style={{ marginBottom: '1rem', border: '1px solid rgba(99,102,241,0.3)' }}>
+                <div className="panel-title" style={{ fontSize: '0.9rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Compass size={14} color="#6366f1" />
+                  Tactical Diversion Instructions
+                </div>
+                <p style={{ fontSize: '12px', color: '#e2e8f0', marginBottom: '8px', fontWeight: '600' }}>
+                  {prediction.diversion_plan.summary}
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {prediction.diversion_plan.steps.map((step, i) => (
+                    <div key={i} style={{
+                      fontSize: '11px', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.02)',
+                      padding: '6px 10px', borderRadius: '6px', borderLeft: '3px solid #6366f1'
+                    }}>
+                      {step}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Diversion Control Points */}
             <div className="result-card">
@@ -511,6 +767,87 @@ export default function ForecastPlanner() {
                 </div>
               </div>
             )}
+
+            {/* What-If Simulator */}
+            <div className="result-card" style={{ marginTop: '1rem', border: '1px solid rgba(99,102,241,0.4)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
+                <TrendingDown size={14} color="#6366f1" />
+                <div className="panel-title" style={{ fontSize: '0.9rem' }}>What-If Scenario Simulator</div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Extra Barricades: {whatIfBarricades}</label>
+                  <input type="range" min="0" max="30" value={whatIfBarricades}
+                    onChange={e => { setWhatIfBarricades(parseInt(e.target.value)); setWhatIfResult(null); }}
+                    style={{ width: '100%', cursor: 'pointer' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Extra Officers: {whatIfOfficers}</label>
+                  <input type="range" min="0" max="20" value={whatIfOfficers}
+                    onChange={e => { setWhatIfOfficers(parseInt(e.target.value)); setWhatIfResult(null); }}
+                    style={{ width: '100%', cursor: 'pointer' }} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                <label style={{ fontSize: '12px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={whatIfCloseRoad}
+                    onChange={e => { setWhatIfCloseRoad(e.target.checked); setWhatIfResult(null); }}
+                    style={{ width: '14px', height: '14px' }} />
+                  Close Road (Full Diversion)
+                </label>
+                <button onClick={handleWhatIf} disabled={isSimulating}
+                  style={{
+                    padding: '6px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                    background: '#6366f1', color: '#fff', fontSize: '12px', fontWeight: '700',
+                    opacity: isSimulating ? 0.6 : 1
+                  }}>
+                  {isSimulating ? 'Simulating...' : 'Simulate'}
+                </button>
+              </div>
+              {whatIfResult && (
+                <div style={{
+                  background: whatIfResult.duration_change_minutes < -15 ? 'rgba(16,185,129,0.08)' : 'rgba(99,102,241,0.08)',
+                  border: `1px solid ${whatIfResult.duration_change_minutes < -15 ? 'rgba(16,185,129,0.3)' : 'rgba(99,102,241,0.3)'}`,
+                  borderRadius: '8px', padding: '10px 14px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#94a3b8' }}>New Duration</div>
+                      <div style={{ fontSize: '18px', fontWeight: '800', color: '#e2e8f0' }}>{formatMinutes(whatIfResult.modified_duration_minutes)}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#94a3b8' }}>Duration Change</div>
+                      <div style={{ fontSize: '16px', fontWeight: '700', color: whatIfResult.duration_change_minutes < 0 ? '#10b981' : '#ef4444' }}>
+                        {whatIfResult.duration_change_pct > 0 ? '+' : ''}{whatIfResult.duration_change_pct}%
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#94a3b8' }}>New Cascade Risk</div>
+                      <div style={{ fontSize: '16px', fontWeight: '700', color: '#f59e0b' }}>
+                        {Math.round(whatIfResult.modified_cascade_probability * 100)}%
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '11px', color: whatIfResult.duration_change_minutes < -15 ? '#10b981' : '#94a3b8', fontWeight: '600' }}>
+                    💡 {whatIfResult.recommendation}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* PDF Export */}
+            <div style={{ marginTop: '1rem' }}>
+              <button onClick={handlePDFExport}
+                style={{
+                  width: '100%', padding: '10px', borderRadius: '10px', border: 'none',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  background: 'linear-gradient(135deg, #1e40af, #6366f1)',
+                  color: '#fff', fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px'
+                }}>
+                <Download size={14} />
+                Export PDF Dispatch Order
+              </button>
+            </div>
 
           </div>
         ) : (
