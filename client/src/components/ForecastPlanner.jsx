@@ -453,6 +453,8 @@ export default function ForecastPlanner() {
                 <option value="6">Sunday</option>
               </select>
             </div>
+          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', marginTop: '0.5rem' }}>
             <input
               type="checkbox"

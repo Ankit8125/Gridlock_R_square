@@ -153,6 +153,8 @@ export default function AICommandAgent() {
                     </button>
                   ))}
                 </div>
+              </div>
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem' }}>
                 <input
                   type="checkbox"
