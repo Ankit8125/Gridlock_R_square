@@ -3,7 +3,17 @@ import json
 import joblib
 import pandas as pd
 import numpy as np
+from math import radians, cos, sin, asin, sqrt
 from backend.impact_scoring import compute_impact_score
+
+
+def haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Return the Haversine distance in metres between two (lat, lon) points."""
+    R = 6_371_000.0
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+    return 2 * R * asin(sqrt(max(0.0, min(1.0, a))))
 
 # Define high-volume causes matching train_models.py
 HIGH_VOLUME_CAUSES = [
@@ -209,13 +219,10 @@ class EventPredictor:
     def find_nearest_junctions(self, lat, lon, k=3):
         if not self.junctions:
             return []
-            
+
         distances = []
         for j in self.junctions:
-            # Simple Euclidean distance as proxy (valid for local city level)
-            dist = np.sqrt((j['lat'] - lat)**2 + (j['lon'] - lon)**2)
-            # Convert degrees to approximate meters (1 degree lat ~= 111,000m)
-            dist_meters = dist * 111000.0
+            dist_meters = haversine_meters(lat, lon, j['lat'], j['lon'])
             distances.append({
                 "name": j['junction'],
                 "latitude": j['lat'],
@@ -223,22 +230,26 @@ class EventPredictor:
                 "distance_meters": round(dist_meters, 1),
                 "vulnerability_score": j.get('vulnerability_score', 0.0)
             })
-            
+
         distances.sort(key=lambda x: x['distance_meters'])
         return distances[:k]
 
     def similarity_retrieval(self, cause, lat, lon, k=5):
         if self.df is None:
             return [], None
-            
+
         # Filter by cause
         subset = self.df[self.df['event_cause_clean'] == cause].copy()
         if subset.empty:
             return [], None
-            
-        subset['dist'] = np.sqrt((subset['latitude'] - lat)**2 + (subset['longitude'] - lon)**2)
-        subset['dist_meters'] = subset['dist'] * 111000.0
-        
+
+        # Haversine distance — geographically correct at Bengaluru latitude
+        subset['dist_meters'] = subset.apply(
+            lambda row: haversine_meters(lat, lon, row['latitude'], row['longitude'])
+            if pd.notnull(row['latitude']) and pd.notnull(row['longitude']) else float('inf'),
+            axis=1
+        )
+
         # Sort and take top k
         top_matches = subset.sort_values(by='dist_meters').head(k)
         

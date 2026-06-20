@@ -7,7 +7,7 @@ if PROJECT_ROOT not in sys.path:
 
 import csv
 import json
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
@@ -211,7 +211,7 @@ def predict_event_impact(req: PredictionRequest):
         raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
 
 @app.post("/api/feedback")
-def log_feedback(req: FeedbackRequest):
+def log_feedback(req: FeedbackRequest, background_tasks: BackgroundTasks):
     try:
         file_exists = os.path.exists(FEEDBACK_CSV_PATH)
         os.makedirs(os.path.dirname(FEEDBACK_CSV_PATH), exist_ok=True)
@@ -231,8 +231,8 @@ def log_feedback(req: FeedbackRequest):
                 req.notes
             ])
             
-        # Trigger policy multipliers updates dynamically
-        predictor.update_policy_multipliers()
+        # Trigger policy multipliers updates asynchronously (non-blocking)
+        background_tasks.add_task(predictor.update_policy_multipliers)
             
         return {"status": "success", "message": "Feedback successfully logged"}
     except Exception as e:

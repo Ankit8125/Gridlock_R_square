@@ -21,7 +21,8 @@ HIGH_VOLUME_CAUSES = [
 
 def train_and_save_models():
     print("Loading cleaned dataset...")
-    cleaned_csv = r"d:\Coding\gridlock\Round 2\backend\artifacts\cleaned_events.csv"
+    BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+    cleaned_csv = os.path.join(BACKEND_DIR, "artifacts", "cleaned_events.csv")
     if not os.path.exists(cleaned_csv):
         raise FileNotFoundError(f"Cleaned dataset not found at {cleaned_csv}. Please run data_pipeline.py first.")
         
@@ -42,7 +43,7 @@ def train_and_save_models():
     numerical_features = ['latitude', 'longitude', 'is_peak_hour', 'local_hour', 'local_day_of_week']
 
     # Prep models directory
-    models_dir = r"d:\Coding\gridlock\Round 2\backend\models"
+    models_dir = os.path.join(BACKEND_DIR, "models")
     os.makedirs(models_dir, exist_ok=True)
     
     # Preprocessor with SimpleImputer for numerical values to handle coordinates NaNs robustly
@@ -362,7 +363,7 @@ def train_and_save_models():
     print(f"Road closure model saved to {closure_model_path}")
 
     # Save results profile metadata
-    results_path = r"d:\Coding\gridlock\Round 2\backend\artifacts\model_comparison_results.json"
+    results_path = os.path.join(BACKEND_DIR, "artifacts", "model_comparison_results.json")
     with open(results_path, 'w', encoding='utf-8') as f:
         json.dump(comparison_results, f, indent=2)
     print(f"\nModel comparison results saved to: {results_path}")

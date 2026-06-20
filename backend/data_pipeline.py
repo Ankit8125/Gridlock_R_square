@@ -83,7 +83,8 @@ def clean_and_preprocess_data(csv_path):
     df['priority_clean'] = df['priority'].fillna('Low').astype(str).str.strip().str.lower()
 
     # Save cleaned data to CSV
-    output_dir = r"d:\Coding\gridlock\Round 2\backend\artifacts"
+    BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+    output_dir = os.path.join(BACKEND_DIR, "artifacts")
     os.makedirs(output_dir, exist_ok=True)
     
     cleaned_csv_path = os.path.join(output_dir, "cleaned_events.csv")
@@ -114,5 +115,7 @@ def clean_and_preprocess_data(csv_path):
     return df, profile
 
 if __name__ == "__main__":
-    csv_path = r"d:\Coding\gridlock\Round 2\dataset\Astram event data_anonymized.csv"
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+    PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+    csv_path = os.path.join(PROJECT_ROOT, "dataset", "Astram event data_anonymized.csv")
     clean_and_preprocess_data(csv_path)
