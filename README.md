@@ -19,7 +19,7 @@ This platform addresses these challenges by processing historical incident data,
 The application is structured as a decoupled full-stack system:
 
 ```mermaid
-graph TD
+flowchart TD
     A[Astram Event Data] --> B[Data Pipeline Engine]
     B --> B1[UTC to IST Conversion]
     B --> B2[Capping Outliers at p90]
@@ -36,14 +36,14 @@ graph TD
     B3 --> D
     B4 --> D
     
-    C -->|Tuned Random Forest| E[Unified Predictor API]
-    D -->|k-NN Retrieval| E
+    C -- Tuned Random Forest --> E[Unified Predictor API]
+    D -- k-NN Retrieval --> E
     
     E --> F[Policy Engine]
     F --> G[FastAPI Backend]
     F --> H[React Client]
     F --> I[Post-Event Learning Loop]
-    I -->|Dynamic Multipliers| E
+    I -- Dynamic Multipliers --> E
 ```
 
 ---
