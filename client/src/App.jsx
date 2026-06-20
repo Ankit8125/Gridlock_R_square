@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart2, Compass, Map, BookOpen } from 'lucide-react';
+import { BarChart2, Compass, Map, BookOpen, Bot } from 'lucide-react';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import ForecastPlanner from './components/ForecastPlanner';
 import LiveMap from './components/LiveMap';
 import FeedbackLog from './components/FeedbackLog';
+import AICommandAgent from './components/AICommandAgent';
 import './App.css';
 
 const API_BASE = "http://127.0.0.1:8000/api";
@@ -87,6 +88,12 @@ function App() {
           >
             <BookOpen size={16} /> Post-Event Log
           </button>
+          <button 
+            className={`tab-btn ${activeTab === 'agent' ? 'active' : ''}`}
+            onClick={() => setActiveTab('agent')}
+          >
+            <Bot size={16} /> AI Agent
+          </button>
         </nav>
       </header>
 
@@ -103,6 +110,9 @@ function App() {
         )}
         {activeTab === 'learning' && (
           <FeedbackLog />
+        )}
+        {activeTab === 'agent' && (
+          <AICommandAgent />
         )}
       </main>
     </div>
