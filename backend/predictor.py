@@ -104,11 +104,62 @@ class EventPredictor:
                                           (corridors_df['road_closure_rate'] / 100) * 30 + 
                                           (corridors_df['high_priority_rate'] / 100) * 30).round(1)
             self.corridor_risks = corridors_df.sort_values(by='risk_score', ascending=False).to_dict(orient='records')
+
+            # 4. Hotspot lat/lon lookup (for station-level allocation)
+            station_latlon = self.df.groupby('police_station_clean').agg(
+                lat=('latitude', 'mean'),
+                lon=('longitude', 'mean')
+            ).reset_index()
+            self._station_latlon = {
+                row['police_station_clean']: (row['lat'], row['lon'])
+                for _, row in station_latlon.iterrows()
+                if pd.notnull(row['lat']) and pd.notnull(row['lon'])
+            }
+            # Attach lat/lon to hotspots records
+            for hs in self.hotspots:
+                ps = hs.get('police_station_clean', '')
+                if ps in self._station_latlon:
+                    hs['lat'], hs['lon'] = self._station_latlon[ps]
+
+            # 5. Venue Recurrence — locations that repeatedly generate incidents
+            venue_df = self.df.dropna(subset=['latitude', 'longitude']).copy()
+            venue_df['grid_cell'] = (
+                venue_df['latitude'].round(3).astype(str) + ',' +
+                venue_df['longitude'].round(3).astype(str)
+            )
+            venue_agg = venue_df.groupby('grid_cell').agg(
+                incident_count=('id', 'count'),
+                lat=('latitude', 'mean'),
+                lon=('longitude', 'mean'),
+                top_cause=('event_cause_clean', lambda x: x.value_counts().index[0] if len(x) > 0 else 'unknown'),
+                avg_duration=('duration', lambda x: float(x[x >= 0].mean()) if not x[x >= 0].empty else 0.0),
+                road_closure_rate=('requires_road_closure', lambda x: float(x.mean() * 100))
+            ).reset_index()
+            venue_agg = venue_agg[venue_agg['incident_count'] >= 3]
+            max_v = venue_agg['incident_count'].max() or 1
+            venue_agg['recurrence_score'] = ((venue_agg['incident_count'] / max_v) * 100).round(1)
+            # Replace any remaining NaN with 0 for JSON safety
+            venue_agg = venue_agg.fillna(0)
+            self.venue_recurrence = venue_agg.sort_values('incident_count', ascending=False).head(50).to_dict(orient='records')
+
+            # 6. Weekly Heatmap (7 × 24 grid: day of week × hour of day)
+            weekly = self.df.dropna(subset=['local_day_of_week', 'local_hour']).copy()
+            weekly['local_day_of_week'] = weekly['local_day_of_week'].astype(int)
+            weekly['local_hour'] = weekly['local_hour'].astype(int)
+            weekly_counts = weekly.groupby(['local_day_of_week', 'local_hour']).size().reset_index(name='count')
+            self.weekly_heatmap = weekly_counts.to_dict(orient='records')
+
+            # 7. Surge Anomaly Detection — corridors/stations with recent spike vs. historical baseline
+            self.surge_alerts = self._compute_surge_alerts()
         else:
             self.df = None
             self.junctions = []
             self.hotspots = []
             self.corridor_risks = []
+            self._station_latlon = {}
+            self.venue_recurrence = []
+            self.weekly_heatmap = []
+            self.surge_alerts = []
 
     def load_adjustments(self):
         self.multipliers = {
@@ -122,6 +173,132 @@ class EventPredictor:
                     self.multipliers = json.load(f)
             except Exception:
                 pass
+
+    def _compute_surge_alerts(self):
+        """Detect corridors with abnormally high incident rates in recent data vs baseline."""
+        if self.df is None or 'local_month' not in self.df.columns:
+            return []
+        try:
+            df = self.df.copy()
+            df['local_month'] = df['local_month'].fillna(-1).astype(int)
+            recent_months = sorted(df['local_month'].unique())[-2:]
+            recent = df[df['local_month'].isin(recent_months)]
+            baseline = df[~df['local_month'].isin(recent_months)]
+            if recent.empty or baseline.empty:
+                return []
+            baseline_months_n = len(baseline['local_month'].unique()) or 1
+            recent_months_n = len(recent['local_month'].unique()) or 1
+            base_rate = baseline.groupby('corridor_clean').size() / baseline_months_n
+            recent_rate = recent.groupby('corridor_clean').size() / recent_months_n
+            alerts = []
+            for corridor in recent_rate.index:
+                r = recent_rate.get(corridor, 0)
+                b = base_rate.get(corridor, 0)
+                if b > 0 and r > 0:
+                    surge_factor = r / b
+                    if surge_factor >= 1.5 and r >= 2:
+                        alerts.append({
+                            "corridor": corridor,
+                            "baseline_monthly_rate": round(float(b), 1),
+                            "recent_monthly_rate": round(float(r), 1),
+                            "surge_factor": round(float(surge_factor), 2),
+                            "severity": "Critical" if surge_factor >= 2.5 else "High" if surge_factor >= 1.8 else "Moderate"
+                        })
+            alerts.sort(key=lambda x: x['surge_factor'], reverse=True)
+            return alerts[:15]
+        except Exception as e:
+            print(f"Surge detection error: {e}")
+            return []
+
+    def get_station_allocation(self, lat: float, lon: float, total_officers: int, k: int = 3) -> list:
+        """Find k nearest police stations and allocate officers proportionally by inverse distance."""
+        if not self._station_latlon or total_officers == 0:
+            return []
+        station_distances = []
+        for station, (slat, slon) in self._station_latlon.items():
+            dist = haversine_meters(lat, lon, slat, slon)
+            station_distances.append((station, dist))
+        station_distances.sort(key=lambda x: x[1])
+        nearest = station_distances[:k]
+        total_inv = sum(1.0 / max(d, 1) for _, d in nearest) or 1.0
+        allocations = []
+        remaining = total_officers
+        for i, (station, dist) in enumerate(nearest):
+            if i == len(nearest) - 1:
+                count = max(0, remaining)
+            else:
+                weight = (1.0 / max(dist, 1)) / total_inv
+                count = max(1, round(total_officers * weight))
+                remaining -= count
+            allocations.append({
+                "station": station,
+                "officers": count,
+                "distance_meters": round(dist, 0)
+            })
+        return allocations
+
+    def compute_cascade_probability(self, is_high_priority: bool, closure_recommended: bool,
+                                    cause: str, corridor: str, is_peak_hour: bool,
+                                    predicted_duration: float) -> dict:
+        """Estimate probability this incident cascades to neighboring junctions and time to escalation."""
+        base = 0.10
+        if is_high_priority:
+            base += 0.25
+        if closure_recommended:
+            base += 0.20
+        if is_peak_hour:
+            base += 0.15
+        from backend.impact_scoring import ARTERIAL_CORRIDORS, HIGH_RISK_CAUSES
+        if str(corridor).strip().lower() in ARTERIAL_CORRIDORS or 'orr' in str(corridor).lower():
+            base += 0.15
+        if str(cause).strip().lower() in HIGH_RISK_CAUSES:
+            base += 0.10
+        if predicted_duration and predicted_duration > 180:
+            base += 0.10
+        elif predicted_duration and predicted_duration > 60:
+            base += 0.05
+        cascade_prob = min(0.98, max(0.02, base))
+        if predicted_duration and cascade_prob > 0.4:
+            pon = max(5, round(predicted_duration * (1 - cascade_prob) * 0.5))
+        else:
+            pon = None
+        return {
+            "cascade_probability": round(cascade_prob, 3),
+            "cascade_class": "Critical" if cascade_prob >= 0.7 else "High" if cascade_prob >= 0.5 else "Moderate" if cascade_prob >= 0.3 else "Low",
+            "point_of_no_return_minutes": pon,
+        }
+
+    def simulate_what_if(self, base_prediction: dict, scenario: dict) -> dict:
+        """Simulate resource change scenarios and return modified impact estimates."""
+        extra_barricades = int(scenario.get('extra_barricades', 0))
+        close_road = bool(scenario.get('close_road', False))
+        extra_officers = int(scenario.get('extra_officers', 0))
+        duration = base_prediction.get('predicted_duration_minutes') or 60.0
+        cascade = base_prediction.get('cascade', {}).get('cascade_probability', 0.5)
+        barricade_reduction = min(0.40, extra_barricades * 0.005)
+        officer_reduction = min(0.30, extra_officers * 0.01)
+        closure_duration_effect = 0.05 if close_road else 0.0
+        closure_cascade_reduction = 0.35 if close_road else 0.0
+        new_duration = max(5.0, duration * (1 - barricade_reduction - officer_reduction + closure_duration_effect))
+        new_cascade = max(0.02, cascade - closure_cascade_reduction - barricade_reduction * 0.5)
+        new_barricades = base_prediction['resources']['barricades'] + extra_barricades
+        new_officers = base_prediction['resources']['manpower']['total_officers'] + extra_officers
+        duration_delta = round(new_duration - duration, 1)
+        return {
+            "scenario": scenario,
+            "modified_duration_minutes": round(new_duration, 1),
+            "duration_change_minutes": duration_delta,
+            "duration_change_pct": round((duration_delta / duration) * 100, 1) if duration else 0,
+            "modified_cascade_probability": round(new_cascade, 3),
+            "cascade_change": round(new_cascade - cascade, 3),
+            "total_officers": new_officers,
+            "total_barricades": new_barricades,
+            "recommendation": (
+                "Recommended — significant improvement predicted." if duration_delta < -15
+                else "Marginal improvement — consider prioritising elsewhere." if duration_delta < 0
+                else "No benefit predicted."
+            )
+        }
 
     def update_policy_multipliers(self):
         backend_dir = os.path.dirname(os.path.abspath(__file__))
@@ -489,7 +666,21 @@ class EventPredictor:
             data_basis=data_basis,
         )
 
-        return {
+        # Cascade probability and time-to-escalation
+        cascade = self.compute_cascade_probability(
+            is_high_priority=is_high_priority,
+            closure_recommended=closure_recommended,
+            cause=cause_clean,
+            corridor=corridor_clean,
+            is_peak_hour=bool(is_peak_hour),
+            predicted_duration=predicted_duration
+        )
+
+        # Station-level officer allocation
+        total_officers = si_count + hc_count + pc_count
+        station_allocations = self.get_station_allocation(float(lat), float(lon), total_officers, k=3)
+
+        result = {
             "predicted_duration_minutes": round(predicted_duration, 1) if predicted_duration else None,
             "predicted_duration_interval": {
                 "min": round(interval_min, 1),
@@ -506,6 +697,7 @@ class EventPredictor:
                 "confidence": impact["confidence"],
                 "explanations": impact["explanations"]
             },
+            "cascade": cascade,
             "data_basis": data_basis,
             "requires_road_closure": requires_closure_bool,
             "resources": {
@@ -513,13 +705,15 @@ class EventPredictor:
                     "sub_inspector": si_count,
                     "head_constable": hc_count,
                     "constable": pc_count,
-                    "total_officers": si_count + hc_count + pc_count
+                    "total_officers": total_officers
                 },
-                "barricades": barricades_count
+                "barricades": barricades_count,
+                "station_allocations": station_allocations
             },
             "nearest_junction_checkpoints": nearest_junctions,
             "similar_historical_events": similar_events
         }
+        return result
 
 if __name__ == "__main__":
     import sys

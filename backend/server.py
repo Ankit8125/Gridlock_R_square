@@ -293,6 +293,107 @@ def get_feedback_summary():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read feedback summary: {str(e)}")
 
+
+# ──────────────────────────────────────────────────────────────
+# New endpoints added in improvement sprint
+# ──────────────────────────────────────────────────────────────
+
+@app.get("/api/surge-alerts")
+def get_surge_alerts():
+    """Return corridors with abnormal recent incident rate spikes."""
+    try:
+        return {"surge_alerts": predictor.surge_alerts}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/venue-recurrence")
+def get_venue_recurrence():
+    """Return locations with the highest repeat-incident counts."""
+    try:
+        return {"venue_recurrence": predictor.venue_recurrence}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/weekly-heatmap")
+def get_weekly_heatmap():
+    """Return 7×24 day-of-week × hour-of-day incident count grid."""
+    try:
+        return {"weekly_heatmap": predictor.weekly_heatmap}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/monthly-distribution")
+def get_monthly_distribution():
+    """Return per-month incident counts for seasonal trend analysis."""
+    try:
+        if predictor.df is None:
+            return {"monthly": []}
+        df = predictor.df.copy()
+        if 'local_month' not in df.columns:
+            return {"monthly": []}
+        month_counts = df.groupby('local_month').size().reset_index(name='count')
+        month_names = {1:'Jan',2:'Feb',3:'Mar',4:'Apr',5:'May',6:'Jun',
+                       7:'Jul',8:'Aug',9:'Sep',10:'Oct',11:'Nov',12:'Dec'}
+        monthly = [
+            {
+                "month": int(row['local_month']),
+                "month_name": month_names.get(int(row['local_month']), str(row['local_month'])),
+                "count": int(row['count'])
+            }
+            for _, row in month_counts.iterrows()
+        ]
+        return {"monthly": monthly}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class WhatIfRequest(BaseModel):
+    # Base prediction inputs (same as PredictionRequest)
+    cause: str
+    event_type: str
+    latitude: float
+    longitude: float
+    requires_road_closure: bool
+    corridor: str
+    hour: int
+    day_of_week: int
+    # Scenario tweaks
+    extra_barricades: int = 0
+    extra_officers: int = 0
+    close_road: bool = False
+
+
+@app.post("/api/what-if")
+def what_if_simulation(req: WhatIfRequest):
+    """Simulate what-if resource scenarios on top of the base prediction."""
+    try:
+        base = predictor.predict(
+            cause=req.cause,
+            event_type=req.event_type,
+            lat=req.latitude,
+            lon=req.longitude,
+            requires_road_closure=str(req.requires_road_closure),
+            corridor=req.corridor,
+            hour=req.hour,
+            day_of_week=req.day_of_week,
+        )
+        scenario = {
+            "extra_barricades": req.extra_barricades,
+            "extra_officers": req.extra_officers,
+            "close_road": req.close_road,
+        }
+        simulated = predictor.simulate_what_if(base, scenario)
+        return {
+            "base_prediction": base,
+            "simulation": simulated,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"What-if simulation error: {str(e)}")
+
+
 if __name__ == "__main__":
     import uvicorn
     # Run the server on port 8000
