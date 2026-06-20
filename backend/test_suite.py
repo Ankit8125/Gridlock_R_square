@@ -64,6 +64,14 @@ class TestBackendAPI(unittest.TestCase):
             self.assertEqual(data["data_basis"], "learned")
             self.assertEqual(data["predicted_priority"], "high")
             self.assertGreater(data["predicted_duration_minutes"], 0)
+            self.assertIn("duration_band", data)
+            self.assertIn("closure_probability", data)
+            self.assertIn("closure_recommended", data)
+            self.assertIn("impact", data)
+            self.assertIn("score", data["impact"])
+            self.assertIn("class", data["impact"])
+            self.assertIn("confidence", data["impact"])
+            self.assertIn("explanations", data["impact"])
             self.assertIn("resources", data)
             self.assertGreater(data["resources"]["manpower"]["total_officers"], 0)
 
@@ -88,6 +96,9 @@ class TestBackendAPI(unittest.TestCase):
             self.assertEqual(response.status, 200)
             data = json.loads(response.read().decode('utf-8'))
             self.assertEqual(data["data_basis"], "similarity_retrieval")
+            self.assertIn("closure_probability", data)
+            self.assertIn("impact", data)
+            self.assertGreaterEqual(data["impact"]["score"], 0)
             self.assertIn("similar_historical_events", data)
             self.assertGreater(len(data["similar_historical_events"]), 0)
 
@@ -133,6 +144,34 @@ class TestBackendAPI(unittest.TestCase):
             self.assertIn("matrix", data)
             self.assertGreater(len(data["labels"]), 0)
             self.assertEqual(len(data["labels"]), len(data["matrix"]))
+
+    def test_09_hotspots(self):
+        print("Testing /api/hotspots...")
+        req = urllib.request.Request(f"{BASE_URL}/hotspots")
+        with urllib.request.urlopen(req) as response:
+            self.assertEqual(response.status, 200)
+            data = json.loads(response.read().decode('utf-8'))
+            self.assertIn("hotspots", data)
+            self.assertGreater(len(data["hotspots"]), 0)
+            # Verify required fields in hotspots output
+            first_hs = data["hotspots"][0]
+            self.assertIn("police_station_clean", first_hs)
+            self.assertIn("incident_count", first_hs)
+            self.assertIn("risk_score", first_hs)
+
+    def test_10_corridor_risk(self):
+        print("Testing /api/corridor-risk...")
+        req = urllib.request.Request(f"{BASE_URL}/corridor-risk")
+        with urllib.request.urlopen(req) as response:
+            self.assertEqual(response.status, 200)
+            data = json.loads(response.read().decode('utf-8'))
+            self.assertIn("corridor_risks", data)
+            self.assertGreater(len(data["corridor_risks"]), 0)
+            # Verify required fields in corridor risks output
+            first_cr = data["corridor_risks"][0]
+            self.assertIn("corridor_clean", first_cr)
+            self.assertIn("incident_count", first_cr)
+            self.assertIn("risk_score", first_cr)
 
 if __name__ == "__main__":
     unittest.main()

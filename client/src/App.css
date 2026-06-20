@@ -512,3 +512,15 @@ tr:hover td {
   font-size: 0.75rem;
   font-weight: 700;
 }
+
+.reason-list {
+  margin: 0.85rem 0 0;
+  padding-left: 1.15rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.reason-list li + li {
+  margin-top: 0.35rem;
+}

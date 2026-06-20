@@ -1,7 +1,9 @@
 import os
 import sys
-# Add parent directory to sys.path to allow absolute imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add project root first so imports always resolve to this workspace.
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 import csv
 import json
@@ -179,6 +181,14 @@ def get_correlation():
 def get_junctions():
     return {"junctions": predictor.junctions}
 
+@app.get("/api/hotspots")
+def get_hotspots():
+    return {"hotspots": predictor.hotspots}
+
+@app.get("/api/corridor-risk")
+def get_corridor_risk():
+    return {"corridor_risks": predictor.corridor_risks}
+
 @app.post("/api/predict")
 def predict_event_impact(req: PredictionRequest):
     try:
@@ -216,6 +226,9 @@ def log_feedback(req: FeedbackRequest):
                 req.police_station,
                 req.notes
             ])
+            
+        # Trigger policy multipliers updates dynamically
+        predictor.update_policy_multipliers()
             
         return {"status": "success", "message": "Feedback successfully logged"}
     except Exception as e:

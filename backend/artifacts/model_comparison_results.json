@@ -9,7 +9,7 @@
         "max_depth": null
       },
       "test_mae_minutes": 2304.17462983111,
-      "test_median_error_minutes": 55.55700849583336
+      "test_median_error_minutes": 55.557008495833365
     },
     {
       "model_name": "Gradient Boosting Regressor",
@@ -69,6 +69,51 @@
       },
       "test_accuracy": 1.0,
       "test_f1_score": 1.0
+    }
+  ],
+  "closure_classification": [
+    {
+      "model_name": "Random Forest Closure Classifier",
+      "best_params": {
+        "n_estimators": 120,
+        "min_samples_split": 4,
+        "min_samples_leaf": 1,
+        "max_depth": 12
+      },
+      "test_accuracy": 0.872782874617737,
+      "test_f1_score": 0.4222222222222222,
+      "test_precision": 0.3377777777777778,
+      "test_recall": 0.562962962962963,
+      "test_roc_auc": 0.8110740740740741
+    },
+    {
+      "model_name": "Gradient Boosting Closure Classifier",
+      "best_params": {
+        "n_estimators": 140,
+        "min_samples_split": 2,
+        "min_samples_leaf": 1,
+        "max_depth": 5,
+        "learning_rate": 0.1
+      },
+      "test_accuracy": 0.92782874617737,
+      "test_f1_score": 0.41,
+      "test_precision": 0.6307692307692307,
+      "test_recall": 0.3037037037037037,
+      "test_roc_auc": 0.8196765432098765
+    },
+    {
+      "model_name": "Hist Gradient Boosting Closure Classifier",
+      "best_params": {
+        "min_samples_leaf": 40,
+        "max_iter": 100,
+        "max_depth": 12,
+        "learning_rate": 0.1
+      },
+      "test_accuracy": 0.9247706422018349,
+      "test_f1_score": 0.33513513513513515,
+      "test_precision": 0.62,
+      "test_recall": 0.22962962962962963,
+      "test_roc_auc": 0.8138987654320987
     }
   ]
 }

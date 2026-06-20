@@ -10,7 +10,7 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import mean_absolute_error, accuracy_score, f1_score
+from sklearn.metrics import mean_absolute_error, accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 
 # High-volume causes that have at least 100 rows in the dataset
 HIGH_VOLUME_CAUSES = [
@@ -56,7 +56,8 @@ def train_and_save_models():
 
     comparison_results = {
         "regression": [],
-        "classification": []
+        "classification": [],
+        "closure_classification": []
     }
 
     # ----------------------------------------------------
@@ -250,6 +251,115 @@ def train_and_save_models():
     clf_model_path = os.path.join(models_dir, "priority_model.joblib")
     joblib.dump(best_clf_pipeline, clf_model_path)
     print(f"Priority model saved to {clf_model_path}")
+
+
+    # ----------------------------------------------------
+    # 3. Train & Tune Road Closure Models (Classification)
+    # ----------------------------------------------------
+    print("\n--- Model Tuning & Selection for Road Closure (Classification) ---")
+    df_closure = df.copy()
+    df_closure['closure_target'] = df_closure['requires_road_closure'].astype(str).str.upper().isin(['TRUE', '1', 'YES'])
+    X_closure = df_closure[features]
+    y_closure = df_closure['closure_target']
+
+    X_train_close, X_test_close, y_train_close, y_test_close = train_test_split(
+        X_closure, y_closure, test_size=0.2, random_state=42, stratify=y_closure
+    )
+
+    close_candidates = [
+        {
+            "name": "Random Forest Closure Classifier",
+            "model": RandomForestClassifier(random_state=42, n_jobs=-1, class_weight='balanced'),
+            "grid": {
+                "classifier__n_estimators": [120, 180, 240],
+                "classifier__max_depth": [8, 12, 16, None],
+                "classifier__min_samples_split": [2, 4, 8],
+                "classifier__min_samples_leaf": [1, 2, 4]
+            }
+        },
+        {
+            "name": "Gradient Boosting Closure Classifier",
+            "model": GradientBoostingClassifier(random_state=42),
+            "grid": {
+                "classifier__n_estimators": [100, 140],
+                "classifier__learning_rate": [0.03, 0.05, 0.1, 0.2],
+                "classifier__max_depth": [2, 3, 5],
+                "classifier__min_samples_split": [2, 4],
+                "classifier__min_samples_leaf": [1, 2, 4]
+            }
+        },
+        {
+            "name": "Hist Gradient Boosting Closure Classifier",
+            "model": HistGradientBoostingClassifier(random_state=42),
+            "grid": {
+                "classifier__max_iter": [100, 140],
+                "classifier__learning_rate": [0.03, 0.05, 0.1, 0.2],
+                "classifier__max_depth": [4, 8, 12],
+                "classifier__min_samples_leaf": [10, 20, 40]
+            }
+        }
+    ]
+
+    best_close_score = -1.0
+    best_close_pipeline = None
+    best_close_name = ""
+
+    for candidate in close_candidates:
+        print(f"\nTuning {candidate['name']}...")
+        pipeline = Pipeline([
+            ('preprocessor', preprocessor),
+            ('classifier', candidate['model'])
+        ])
+
+        search = RandomizedSearchCV(
+            pipeline,
+            param_distributions=candidate['grid'],
+            n_iter=8,
+            cv=3,
+            scoring='f1',
+            random_state=42,
+            n_jobs=-1
+        )
+        search.fit(X_train_close, y_train_close)
+
+        test_pred = search.predict(X_test_close)
+        try:
+            true_index = list(search.classes_).index(True)
+            test_prob = search.predict_proba(X_test_close)[:, true_index]
+            auc = roc_auc_score(y_test_close, test_prob)
+        except Exception:
+            auc = None
+
+        acc = accuracy_score(y_test_close, test_pred)
+        f1 = f1_score(y_test_close, test_pred, zero_division=0)
+        precision = precision_score(y_test_close, test_pred, zero_division=0)
+        recall = recall_score(y_test_close, test_pred, zero_division=0)
+
+        print(f"Best Params: {search.best_params_}")
+        print(
+            f"Test Accuracy: {acc:.2%} | F1: {f1:.4f} | "
+            f"Precision: {precision:.4f} | Recall: {recall:.4f}"
+        )
+
+        comparison_results["closure_classification"].append({
+            "model_name": candidate['name'],
+            "best_params": {k.replace("classifier__", ""): v for k, v in search.best_params_.items()},
+            "test_accuracy": float(acc),
+            "test_f1_score": float(f1),
+            "test_precision": float(precision),
+            "test_recall": float(recall),
+            "test_roc_auc": float(auc) if auc is not None else None
+        })
+
+        if f1 > best_close_score:
+            best_close_score = f1
+            best_close_pipeline = search.best_estimator_
+            best_close_name = candidate['name']
+
+    print(f"\nWinner for Road Closure Model: {best_close_name} (F1-Score: {best_close_score:.4f})")
+    closure_model_path = os.path.join(models_dir, "closure_model.joblib")
+    joblib.dump(best_close_pipeline, closure_model_path)
+    print(f"Road closure model saved to {closure_model_path}")
 
     # Save results profile metadata
     results_path = r"d:\Coding\gridlock\Round 2\backend\artifacts\model_comparison_results.json"

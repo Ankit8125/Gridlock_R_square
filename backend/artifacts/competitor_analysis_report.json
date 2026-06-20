@@ -1,0 +1,1285 @@
+{
+  "total_scanned": 27,
+  "unrelated_repos": [],
+  "repos": [
+    {
+      "repo": "Flipkart-GridLock",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "road_closure",
+        "breakdown",
+        "accident",
+        "duration",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "XGBoost",
+        "LightGBM",
+        "Random Forest",
+        "CatBoost",
+        "Linear/Ridge/Lasso"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "Node.js/Express",
+        "Streamlit"
+      ],
+      "total_files": 39,
+      "saved_models": [
+        "outputs\\models\\closure_model.joblib",
+        "outputs\\models\\clustering_model.joblib",
+        "outputs\\models\\duration_model.joblib",
+        "outputs\\models\\severity_model.joblib"
+      ],
+      "top_files": [
+        "Astram event data_anonymized - Astram event data_anonymizedb40ac87 (1).csv",
+        "config.yaml",
+        "README.md",
+        "requirements.txt",
+        "catboost_info\\catboost_training.json",
+        "catboost_info\\learn_error.tsv",
+        "catboost_info\\time_left.tsv",
+        "catboost_info\\learn\\events.out.tfevents",
+        "dashboard\\app.py",
+        "outputs\\processed_events.parquet",
+        "outputs\\models\\closure_model.joblib",
+        "outputs\\models\\clustering_model.joblib",
+        "outputs\\models\\duration_model.joblib",
+        "outputs\\models\\severity_model.joblib",
+        "outputs\\plots\\01_event_cause_distribution.png"
+      ]
+    },
+    {
+      "repo": "flipkart-gridlock-2-0",
+      "is_relevant": true,
+      "matched_keywords": [
+        "bengaluru",
+        "traffic",
+        "congestion"
+      ],
+      "models": [
+        "LightGBM"
+      ],
+      "routing": [
+        "Dijkstra/A*"
+      ],
+      "tech_stack": [],
+      "total_files": 2,
+      "saved_models": [],
+      "top_files": [
+        "phase2-flipkart-gridlock2-o.ipynb",
+        "README.md"
+      ]
+    },
+    {
+      "repo": "Flipkart-Gridlock-Hackathon-2-Round-2-Frontend",
+      "is_relevant": true,
+      "matched_keywords": [
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade"
+      ],
+      "models": [],
+      "routing": [],
+      "tech_stack": [
+        "React",
+        "Next.js",
+        "Node.js/Express"
+      ],
+      "total_files": 34,
+      "saved_models": [],
+      "top_files": [
+        ".gitignore",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "eslint.config.mjs",
+        "LICENSE",
+        "next.config.ts",
+        "package-lock.json",
+        "package.json",
+        "postcss.config.mjs",
+        "README.md",
+        "tsconfig.json",
+        "src\\app\\globals.css",
+        "src\\app\\icon.png",
+        "src\\app\\layout.tsx",
+        "src\\app\\(auth)\\page.tsx"
+      ]
+    },
+    {
+      "repo": "Flipkart-GridLock-v1",
+      "is_relevant": true,
+      "matched_keywords": [
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "obstruction",
+        "police",
+        "breakdown",
+        "duration",
+        "junction"
+      ],
+      "models": [
+        "XGBoost"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "React",
+        "FastAPI"
+      ],
+      "total_files": 92,
+      "saved_models": [],
+      "top_files": [
+        ".dockerignore",
+        ".gitignore",
+        "analyze_dataset.py",
+        "analyze_deep.py",
+        "docker-compose.yml",
+        "Dockerfile",
+        "README.md",
+        "requirements.txt",
+        "backend\\.env.example",
+        "backend\\app.py",
+        "backend\\Dockerfile",
+        "backend\\README.md",
+        "backend\\requirements.txt",
+        "backend\\__init__.py",
+        "backend\\data\\.gitkeep"
+      ]
+    },
+    {
+      "repo": "Flipkart_Gridlock",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "bangalore",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade",
+        "road_closure",
+        "breakdown",
+        "accident",
+        "duration",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "Random Forest"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "React",
+        "FastAPI"
+      ],
+      "total_files": 73,
+      "saved_models": [
+        "eventflow\\backend\\models\\calibration.json",
+        "eventflow\\backend\\models\\closure_model.joblib",
+        "eventflow\\backend\\models\\congestion_model.joblib",
+        "eventflow\\backend\\models\\duration_model.joblib",
+        "eventflow\\backend\\models\\feedback_log.json"
+      ],
+      "top_files": [
+        "Astram event data_anonymized - Astram event data_anonymizedb40ac87.csv",
+        "README.md",
+        "eventflow\\.gitignore",
+        "eventflow\\.vercelignore",
+        "eventflow\\package.json",
+        "eventflow\\README.md",
+        "eventflow\\requirements.txt",
+        "eventflow\\start.bat",
+        "eventflow\\TEST_EVENTS.txt",
+        "eventflow\\vercel.json",
+        "eventflow\\api\\index.py",
+        "eventflow\\backend\\.gitignore",
+        "eventflow\\backend\\requirements.txt",
+        "eventflow\\backend\\train.py",
+        "eventflow\\backend\\app\\config.py"
+      ]
+    },
+    {
+      "repo": "Flipkart_Gridlock-v1",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade",
+        "road_closure",
+        "breakdown",
+        "accident",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "CatBoost"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "Node.js/Express",
+        "Streamlit"
+      ],
+      "total_files": 17,
+      "saved_models": [],
+      "top_files": [
+        "app.py",
+        "Astram event data_anonymized - Astram event data_anonymizedb40ac87.csv",
+        "plot_theme.py",
+        "requirements.txt",
+        "risk_classifier.pkl",
+        "style.py",
+        ".devcontainer\\devcontainer.json",
+        ".streamlit\\config.toml",
+        "pages\\1_Dashboard.py",
+        "pages\\2_Risk_Prediction.py",
+        "pages\\3_Hotspot_Map.py",
+        "pages\\4_Resource_Planner.py",
+        "pages\\5_Vulnerable_Junctions.py",
+        "pages\\6_Similar_Events.py",
+        "pages\\7_Analytics.py"
+      ]
+    },
+    {
+      "repo": "Flipkart_Gridlock_Hackathon_2.0_Astram-Event-Optimizer",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade",
+        "road_closure",
+        "breakdown",
+        "accident",
+        "duration",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "XGBoost",
+        "LightGBM",
+        "Random Forest",
+        "CatBoost",
+        "Linear/Ridge/Lasso"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "React",
+        "FastAPI",
+        "Streamlit"
+      ],
+      "total_files": 18,
+      "saved_models": [
+        "models\\astram_rf_model.pkl",
+        "models\\le_cause.pkl",
+        "models\\le_zone.pkl"
+      ],
+      "top_files": [
+        ".gitignore",
+        "README.md",
+        "requirements.txt",
+        "archive_phase1\\README.md",
+        "archive_phase1\\experiments\\01_lightgbm.py",
+        "archive_phase1\\experiments\\02_catboost.py",
+        "archive_phase1\\experiments\\03_xgboost.py",
+        "archive_phase1\\scripts\\01_oof_lightgbm.py",
+        "archive_phase1\\scripts\\02_oof_catboost.py",
+        "archive_phase1\\scripts\\03_ensemble.py",
+        "backend\\inference.py",
+        "backend\\main.py",
+        "data\\processed\\events_cleaned.csv",
+        "data\\processed\\zone_intelligence.json",
+        "frontend\\app.py"
+      ]
+    },
+    {
+      "repo": "FlowCast",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "barricade",
+        "road_closure",
+        "breakdown",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "LightGBM"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "React"
+      ],
+      "total_files": 6,
+      "saved_models": [],
+      "top_files": [
+        "dashboard.html",
+        "index.html",
+        "package.json",
+        "README(2).md",
+        "README.md",
+        "vercel.json"
+      ]
+    },
+    {
+      "repo": "gridlock",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "obstruction",
+        "constable",
+        "road_closure",
+        "accident",
+        "duration",
+        "priority",
+        "corridor"
+      ],
+      "models": [
+        "LightGBM",
+        "LSTM/RNN",
+        "k-NN",
+        "Deep Learning"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "React",
+        "FastAPI",
+        "Streamlit"
+      ],
+      "total_files": 102,
+      "saved_models": [],
+      "top_files": [
+        ".env.example",
+        ".gitignore",
+        "API.md",
+        "ARCHITECTURE.md",
+        "DEVELOPER.md",
+        "docker-compose.yml",
+        "pyproject.toml",
+        "README.md",
+        "SETUP.md",
+        ".github\\workflows\\ci.yml",
+        "config\\config.yaml",
+        "config\\redis_init.py",
+        "config\\schema.sql",
+        "docker\\docker-entrypoint.sh",
+        "docker\\Dockerfile.api"
+      ]
+    },
+    {
+      "repo": "gridlock-2.0",
+      "is_relevant": true,
+      "matched_keywords": [
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade",
+        "road_closure",
+        "breakdown",
+        "accident",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "Random Forest",
+        "k-NN"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "FastAPI"
+      ],
+      "total_files": 52,
+      "saved_models": [
+        "backend\\models\\priority_model.pkl",
+        "backend\\models\\road_closure_model.pkl"
+      ],
+      "top_files": [
+        "Data.csv",
+        "README.md",
+        "backend\\ares.db",
+        "backend\\requirements.txt",
+        "backend\\app\\config.py",
+        "backend\\app\\database.py",
+        "backend\\app\\main.py",
+        "backend\\app\\__init__.py",
+        "backend\\app\\ml\\__init__.py",
+        "backend\\app\\routes\\analyze.py",
+        "backend\\app\\routes\\diversion.py",
+        "backend\\app\\routes\\health.py",
+        "backend\\app\\routes\\hotspots.py",
+        "backend\\app\\routes\\recommendation.py",
+        "backend\\app\\routes\\report.py"
+      ]
+    },
+    {
+      "repo": "gridlock-2.0-v1",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade",
+        "road_closure",
+        "detour",
+        "breakdown",
+        "accident",
+        "duration",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "XGBoost",
+        "LightGBM"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "FastAPI",
+        "Node.js/Express",
+        "Streamlit"
+      ],
+      "total_files": 77,
+      "saved_models": [
+        "outputs\\models\\clearance_regressor.joblib",
+        "outputs\\models\\clearance_regressor_learned.joblib",
+        "outputs\\models\\priority_classifier.joblib",
+        "outputs\\models\\smart_city_xgb_pipeline.joblib",
+        "outputs\\reports\\smart_city_model_metrics.json"
+      ],
+      "top_files": [
+        ".gitignore",
+        "Dockerfile",
+        "make_project_report.py",
+        "Procfile",
+        "Project-Report.pdf",
+        "README.md",
+        "requirements.txt",
+        "run_all.py",
+        ".streamlit\\config.toml",
+        "app\\dashboard.py",
+        "backend\\api.py",
+        "backend\\__init__.py",
+        "data\\processed\\events_features.csv",
+        "data\\raw\\astram_events.csv",
+        "data\\sample\\smart_city_events.csv"
+      ]
+    },
+    {
+      "repo": "gridlock-ai",
+      "is_relevant": true,
+      "matched_keywords": [
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "priority"
+      ],
+      "models": [],
+      "routing": [],
+      "tech_stack": [
+        "React",
+        "Next.js"
+      ],
+      "total_files": 23,
+      "saved_models": [],
+      "top_files": [
+        "process_real_data.py",
+        "README.md",
+        "dashboard\\.gitignore",
+        "dashboard\\AGENTS.md",
+        "dashboard\\CLAUDE.md",
+        "dashboard\\eslint.config.mjs",
+        "dashboard\\next.config.ts",
+        "dashboard\\package-lock.json",
+        "dashboard\\package.json",
+        "dashboard\\postcss.config.mjs",
+        "dashboard\\README.md",
+        "dashboard\\tsconfig.json",
+        "dashboard\\public\\file.svg",
+        "dashboard\\public\\globe.svg",
+        "dashboard\\public\\hotspots.json"
+      ]
+    },
+    {
+      "repo": "gridlock-astram-foresight",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "breakdown",
+        "accident",
+        "duration",
+        "priority",
+        "corridor"
+      ],
+      "models": [
+        "LightGBM"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "React",
+        "Streamlit"
+      ],
+      "total_files": 29,
+      "saved_models": [
+        "models\\model_clearance_band.joblib",
+        "models\\model_closure.joblib",
+        "models\\model_nlp_cause.joblib"
+      ],
+      "top_files": [
+        ".gitignore",
+        ".python-version",
+        "pyproject.toml",
+        "README.md",
+        "requirements.txt",
+        "uv.lock",
+        ".streamlit\\config.toml",
+        "app\\app.py",
+        "data\\processed\\breakdown_by_corridor.parquet",
+        "data\\processed\\breakdown_hotspots.parquet",
+        "data\\processed\\clearance_median_by_cause.parquet",
+        "data\\processed\\clearance_median_by_cause_corridor.parquet",
+        "data\\processed\\corridor_risk.parquet",
+        "data\\processed\\events_clean.parquet",
+        "data\\processed\\text_signals.parquet"
+      ]
+    },
+    {
+      "repo": "gridlock-flipkart",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade",
+        "accident",
+        "duration",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "XGBoost",
+        "LightGBM",
+        "Deep Learning"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "React",
+        "Next.js",
+        "FastAPI",
+        "Node.js/Express"
+      ],
+      "total_files": 119,
+      "saved_models": [
+        "astram_models_bundle\\xgb_model.json",
+        "ml_sidecar\\astram_models_bundle\\xgb_model.json"
+      ],
+      "top_files": [
+        ".gitignore",
+        "DEPLOY.md",
+        "docker-compose.yml",
+        "Flipkart_gridlock.ipynb",
+        "project_theme.txt",
+        "README.md",
+        "ROADMAP.md",
+        "astram_models_bundle\\confusion_matrices.png",
+        "astram_models_bundle\\distributions.png",
+        "astram_models_bundle\\feature_target_correlation.png",
+        "astram_models_bundle\\geo_clusters.png",
+        "astram_models_bundle\\lgbm_feature_importance.png",
+        "astram_models_bundle\\lgbm_model.txt",
+        "astram_models_bundle\\missing_values.png",
+        "astram_models_bundle\\mlp_learning_curve.png"
+      ]
+    },
+    {
+      "repo": "Gridlock-Flipkart-v1",
+      "is_relevant": true,
+      "matched_keywords": [
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade",
+        "road_closure",
+        "breakdown",
+        "accident",
+        "duration",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "XGBoost"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "React",
+        "FastAPI",
+        "Streamlit"
+      ],
+      "total_files": 62,
+      "saved_models": [
+        "models\\cascade_calibrator.pkl",
+        "models\\cascade_classifier.pkl",
+        "models\\encoders.pkl",
+        "models\\hotspots.pkl",
+        "models\\impact_classifier.pkl"
+      ],
+      "top_files": [
+        ".gitignore",
+        "AGENTS.md",
+        "api.py",
+        "pyproject.toml",
+        "README.md",
+        "requirements.txt",
+        "train.py",
+        "assets\\logo.png",
+        "assets\\logo.svg",
+        "assets\\wordmark.png",
+        "assets\\wordmark.svg",
+        "data\\dataset.csv",
+        "data\\junction_centrality.csv",
+        "data\\junction_vulnerability.csv",
+        "data\\predictions_log.csv"
+      ]
+    },
+    {
+      "repo": "gridlock-oracle",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "bangalore",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade",
+        "road_closure",
+        "osrm",
+        "breakdown",
+        "accident",
+        "duration",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "XGBoost",
+        "Linear/Ridge/Lasso"
+      ],
+      "routing": [
+        "OSRM"
+      ],
+      "tech_stack": [
+        "React",
+        "FastAPI",
+        "Node.js/Express",
+        "Streamlit"
+      ],
+      "total_files": 76,
+      "saved_models": [
+        "models\\analog_index.pkl",
+        "models\\backtest_report.json",
+        "models\\calibration_metrics.json",
+        "models\\cascade_risk.json",
+        "models\\cascade_risk.pkl"
+      ],
+      "top_files": [
+        ".gitignore",
+        ".python-version",
+        "ab_test_embeddings.py",
+        "ab_test_text.py",
+        "analogs.py",
+        "api.py",
+        "calibrate.py",
+        "cascade.py",
+        "check_dataset.py",
+        "check_text_fields.py",
+        "conformal.py",
+        "congestion.py",
+        "dashboard.py",
+        "development_process.txt",
+        "diagnose.py"
+      ]
+    },
+    {
+      "repo": "gridlock-prototype",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "bangalore",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade",
+        "road_closure",
+        "breakdown",
+        "accident",
+        "duration",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "LightGBM"
+      ],
+      "routing": [
+        "Google Maps"
+      ],
+      "tech_stack": [
+        "React",
+        "Next.js",
+        "FastAPI"
+      ],
+      "total_files": 103,
+      "saved_models": [
+        "data\\models\\model_metrics.json"
+      ],
+      "top_files": [
+        ".env.example",
+        ".gitignore",
+        "docker-compose.yml",
+        "backend\\config.py",
+        "backend\\database.py",
+        "backend\\main.py",
+        "backend\\pytest.ini",
+        "backend\\requirements.txt",
+        "backend\\reset_db.py",
+        "backend\\simulate_live_feed.py",
+        "backend\\cache\\bfd12fbb5335a2f29d3fb307fdc2421a79ad3021.json",
+        "backend\\cache\\f1e6ea0ba59974034d2f3a60aa923b7efa24c8fe.json",
+        "backend\\modules\\__init__.py",
+        "backend\\modules\\ai_copilot\\models.py",
+        "backend\\modules\\ai_copilot\\router.py"
+      ]
+    },
+    {
+      "repo": "gridlock-round2",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade",
+        "road_closure",
+        "breakdown",
+        "accident",
+        "duration",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "LightGBM",
+        "CatBoost"
+      ],
+      "routing": [
+        "Dijkstra/A*"
+      ],
+      "tech_stack": [
+        "React",
+        "Node.js/Express",
+        "Streamlit"
+      ],
+      "total_files": 42,
+      "saved_models": [
+        "models\\cb_closure.pkl",
+        "models\\cb_duration.pkl",
+        "models\\clf_encoders.pkl",
+        "models\\dur_encoders.pkl",
+        "models\\lgb_closure.pkl"
+      ],
+      "top_files": [
+        ".gitignore",
+        "app.py",
+        "build_pptx.py",
+        "data_prep.py",
+        "DECK.md",
+        "event_intelligence.ipynb",
+        "impact_models.py",
+        "LEARNING.md",
+        "learning.py",
+        "PLAN.md",
+        "presentation.pptx",
+        "PROPOSAL.md",
+        "README.md",
+        "RECOMMEND.md",
+        "recommend.py"
+      ]
+    },
+    {
+      "repo": "Gridlock-Sentinel",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade",
+        "road_closure",
+        "breakdown",
+        "accident",
+        "duration",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [],
+      "routing": [],
+      "tech_stack": [],
+      "total_files": 8,
+      "saved_models": [],
+      "top_files": [
+        ".gitignore",
+        "app.js",
+        "Astram event data_anonymized - Astram event data_anonymizedb40ac87.csv",
+        "data_summary.json",
+        "index.html",
+        "process_data.py",
+        "README.md",
+        "styles.css"
+      ]
+    },
+    {
+      "repo": "gridlock-v1",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "road_closure",
+        "breakdown",
+        "accident",
+        "duration",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [],
+      "routing": [],
+      "tech_stack": [
+        "React",
+        "FastAPI"
+      ],
+      "total_files": 49,
+      "saved_models": [],
+      "top_files": [
+        "Astram event data_anonymized - Astram event data_anonymizedb40ac87.csv",
+        "astram.db",
+        "backend\\database.py",
+        "backend\\main.py",
+        "backend\\models.py",
+        "backend\\requirements.txt",
+        "backend\\fixtures\\calendar_matrix.json",
+        "backend\\fixtures\\corridor_graph.json",
+        "backend\\fixtures\\poi_gravity.json",
+        "backend\\routers\\calendar_risk.py",
+        "backend\\routers\\cascade.py",
+        "backend\\routers\\forecast.py",
+        "backend\\routers\\gravity.py",
+        "backend\\routers\\incidents.py",
+        "backend\\routers\\llm_advisor.py"
+      ]
+    },
+    {
+      "repo": "gridlock-v2",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade",
+        "road_closure",
+        "osrm",
+        "breakdown",
+        "accident",
+        "duration",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "Random Forest"
+      ],
+      "routing": [
+        "OSRM"
+      ],
+      "tech_stack": [
+        "React",
+        "Next.js",
+        "FastAPI"
+      ],
+      "total_files": 71,
+      "saved_models": [
+        "backend\\app\\services\\duration_model.pkl",
+        "models\\feature_columns.json",
+        "models\\label_encoders.pkl",
+        "models\\priority_model.pkl",
+        "models\\severity_model.pkl"
+      ],
+      "top_files": [
+        ".gitignore",
+        "Astram event data_anonymized - Astram event data_anonymizedb40ac87.csv",
+        "docker-compose.yml",
+        "implemented_features.md",
+        "problemstatement.md",
+        "README.md",
+        "render.yaml",
+        "train_model.py",
+        "backend\\.gitignore",
+        "backend\\requirements.txt",
+        "backend\\seed_db.py",
+        "backend\\test_main.py",
+        "backend\\train_model.py",
+        "backend\\app\\main.py",
+        "backend\\app\\__init__.py"
+      ]
+    },
+    {
+      "repo": "gridlock-v3",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "bangalore",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade",
+        "road_closure",
+        "breakdown",
+        "accident",
+        "duration",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "Random Forest",
+        "CatBoost",
+        "LSTM/RNN"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "React",
+        "Next.js",
+        "FastAPI"
+      ],
+      "total_files": 140,
+      "saved_models": [
+        "backend\\models\\final_model_config.json",
+        "backend\\models\\vec_normalize.pkl",
+        "backend\\models\\vec_normalize_b.pkl",
+        "backend\\models\\vec_normalize_c.pkl",
+        "backend\\models\\vec_normalize_feature.pkl"
+      ],
+      "top_files": [
+        ".gitignore",
+        "design.md",
+        "docker-compose.yml",
+        "extract_code.py",
+        "notebook_tail.py",
+        "README.md",
+        "REPORT.md",
+        "requirements.md",
+        "Tasks.md",
+        "backend\\alembic.ini",
+        "backend\\Dockerfile",
+        "backend\\optuna_results.csv",
+        "backend\\pytest.ini",
+        "backend\\requirements.txt",
+        "backend\\test_stress.py"
+      ]
+    },
+    {
+      "repo": "Gridlock_2.0",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade",
+        "detour",
+        "duration",
+        "priority",
+        "corridor"
+      ],
+      "models": [
+        "LightGBM"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "FastAPI",
+        "Streamlit"
+      ],
+      "total_files": 20,
+      "saved_models": [],
+      "top_files": [
+        ".gitignore",
+        "gridlock-event-congestion\\.gitignore",
+        "gridlock-event-congestion\\README.md",
+        "gridlock-event-congestion\\backend\\requirements.txt",
+        "gridlock-event-congestion\\backend\\train_model.py",
+        "gridlock-event-congestion\\backend\\__init__.py",
+        "gridlock-event-congestion\\backend\\app\\main.py",
+        "gridlock-event-congestion\\backend\\app\\__init__.py",
+        "gridlock-event-congestion\\backend\\app\\api\\feedback.py",
+        "gridlock-event-congestion\\backend\\app\\api\\forecast.py",
+        "gridlock-event-congestion\\backend\\app\\api\\__init__.py",
+        "gridlock-event-congestion\\backend\\app\\core\\feedback.py",
+        "gridlock-event-congestion\\backend\\app\\core\\model_pipeline.py",
+        "gridlock-event-congestion\\backend\\app\\core\\recommendation.py",
+        "gridlock-event-congestion\\backend\\app\\core\\__init__.py"
+      ]
+    },
+    {
+      "repo": "Gridlock_phase2",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade",
+        "road_closure",
+        "breakdown",
+        "accident",
+        "duration",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "LightGBM",
+        "Random Forest",
+        "CatBoost"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "FastAPI",
+        "Streamlit"
+      ],
+      "total_files": 55,
+      "saved_models": [
+        "api\\models\\classifier.pkl",
+        "api\\models\\congestion_classifier.pkl",
+        "api\\models\\ensemble.pkl",
+        "api\\models\\features.json",
+        "api\\models\\geo_fill.pkl"
+      ],
+      "top_files": [
+        "README.md",
+        "api\\gridlock_memory.db",
+        "api\\main.py",
+        "api\\seed.py",
+        "api\\models\\classifier.pkl",
+        "api\\models\\congestion_classifier.pkl",
+        "api\\models\\ensemble.pkl",
+        "api\\models\\features.json",
+        "api\\models\\geo_fill.pkl",
+        "api\\models\\kmeans_geo.pkl",
+        "api\\models\\label_encoders.pkl",
+        "api\\models\\lgbm_congestion.pkl",
+        "api\\models\\regressor.pkl",
+        "api\\models\\target_encoding_maps.json",
+        "dashboard\\app.py"
+      ]
+    },
+    {
+      "repo": "gridlock_prototype",
+      "is_relevant": true,
+      "matched_keywords": [
+        "bengaluru",
+        "bangalore",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade",
+        "road_closure",
+        "breakdown",
+        "accident",
+        "duration",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "XGBoost",
+        "LightGBM",
+        "Random Forest",
+        "CatBoost",
+        "Linear/Ridge/Lasso",
+        "ARIMA/Prophet"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "React",
+        "FastAPI",
+        "Node.js/Express"
+      ],
+      "total_files": 150,
+      "saved_models": [],
+      "top_files": [
+        ".env.example",
+        ".gitignore",
+        "CONTRIBUTING.md",
+        "docker-compose.yml",
+        "groq_recommendation_service_plan.md",
+        "LICENSE",
+        "package-lock.json",
+        "package.json",
+        "README.md",
+        ".github\\workflows\\ci.yml",
+        ".husky\\pre-commit",
+        "apps\\backend\\.prettierignore",
+        "apps\\backend\\.prettierrc",
+        "apps\\backend\\Dockerfile",
+        "apps\\backend\\eslint.config.js"
+      ]
+    },
+    {
+      "repo": "gridlock_round2",
+      "is_relevant": true,
+      "matched_keywords": [
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "barricade",
+        "road_closure",
+        "breakdown",
+        "accident",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "XGBoost",
+        "LightGBM",
+        "CatBoost",
+        "Linear/Ridge/Lasso"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "React",
+        "FastAPI"
+      ],
+      "total_files": 18,
+      "saved_models": [
+        "BTP-Command-Center\\catboost_model.pkl",
+        "BTP-Command-Center\\lightgbm_model.pkl"
+      ],
+      "top_files": [
+        ".gitattributes",
+        "Astram event data_anonymized - Astram event data_anonymizedb40ac87.csv",
+        "Data Fusion Engine for-2026-06-18-145631.png",
+        "README.md",
+        "VedNaman_ConceptNote_Theme2.pdf",
+        ".idea\\.gitignore",
+        ".idea\\gridlock.iml",
+        ".idea\\misc.xml",
+        ".idea\\modules.xml",
+        ".idea\\vcs.xml",
+        "BTP-Command-Center\\catboost_model.pkl",
+        "BTP-Command-Center\\gridlock.ipynb",
+        "BTP-Command-Center\\index.html",
+        "BTP-Command-Center\\lightgbm_model.pkl",
+        "BTP-Command-Center\\ml_api.py"
+      ]
+    },
+    {
+      "repo": "NammaTraffic",
+      "is_relevant": true,
+      "matched_keywords": [
+        "astram",
+        "bengaluru",
+        "traffic",
+        "congestion",
+        "police",
+        "road_closure",
+        "breakdown",
+        "accident",
+        "priority",
+        "corridor",
+        "junction"
+      ],
+      "models": [
+        "LightGBM",
+        "CatBoost"
+      ],
+      "routing": [],
+      "tech_stack": [
+        "React",
+        "Node.js/Express",
+        "Streamlit"
+      ],
+      "total_files": 20,
+      "saved_models": [
+        "artifacts\\model_performance.json"
+      ],
+      "top_files": [
+        ".gitignore",
+        "NAMMATRAFFIC_PITCHDECK.key",
+        "NAMMATRAFFIC_PITCHDECK.pptx",
+        "README.md",
+        "requirements.txt",
+        "artifacts\\cleaned_data.csv",
+        "artifacts\\closure_model.lgb",
+        "artifacts\\copilot_context.json",
+        "artifacts\\corridor_risk.csv",
+        "artifacts\\feature_config.json",
+        "artifacts\\hotspot_clusters.csv",
+        "artifacts\\label_encoders.pkl",
+        "artifacts\\model_performance.json",
+        "artifacts\\resolution_model.cbm",
+        "artifacts\\severity_model.cbm"
+      ]
+    }
+  ]
+}

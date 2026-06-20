@@ -18,42 +18,39 @@ This platform addresses these challenges by processing historical incident data,
 
 The application is structured as a decoupled full-stack system:
 
-```
-                  ┌───────────────────────────────┐
-                  │  Astram_event_data_anonymized │
-                  └───────────────┬───────────────┘
-                                  │
-                       [1. DATA PIPELINE ENGINE]
-                                  │
-                                  ├─► UTC to IST (Asia/Kolkata) conversion
-                                  ├─► Capping duration outliers at p90
-                                  ├─► Administrative Police Station backbone
-                                  └─► Bilingual Text Parser (offline NLP)
-                                  │
-                   ┌──────────────┴──────────────┐
-                   ▼                             ▼
-       [2a. HIGH-VOLUME CAUSES]        [2b. LOW-VOLUME / RARE CAUSES]
-      Tuned Random Forest Models        k-NN Geolocation Retrieval (k=5)
-                   │                             │
-                   └──────────────┬──────────────┘
-                                  ▼
-                     [3. UNIFIED PREDICTOR API]
-                   Predicts Duration, Priority, Checkpoints
-                                  │
-                        [4. POLICY ENGINE]
-                     Calculates Manpower & Barricades
-                                  │
-       ┌──────────────────────────┼──────────────────────────┐
-       ▼                          ▼                          ▼
-[FASTAPI BACKEND]           [REACT CLIENT]          [POST-EVENT LOOP]
-Port 8000 API            Vite SPA Dashboard         feedback_data.csv
+```mermaid
+graph TD
+    A[Astram Event Data] --> B[Data Pipeline Engine]
+    B --> B1[UTC to IST Conversion]
+    B --> B2[Capping Outliers at p90]
+    B --> B3[Police Station Administrative Backbone]
+    B --> B4[Bilingual Text Parser]
+    
+    B1 --> C[High-Volume Causes]
+    B2 --> C
+    B3 --> C
+    B4 --> C
+    
+    B1 --> D[Low-Volume Causes]
+    B2 --> D
+    B3 --> D
+    B4 --> D
+    
+    C -->|Tuned Random Forest| E[Unified Predictor API]
+    D -->|k-NN Retrieval| E
+    
+    E --> F[Policy Engine]
+    F --> G[FastAPI Backend]
+    F --> H[React Client]
+    F --> I[Post-Event Learning Loop]
+    I -->|Dynamic Multipliers| E
 ```
 
 ---
 
 ## 3. Data Engineering & Preprocessing
 
-### Timezone Conversion (UTC ──► IST)
+### Timezone Conversion (UTC --> IST)
 Raw dataset timestamps were logged in UTC (`+00`). The pipeline converts these to Bengaluru local time (`Asia/Kolkata` / `+05:30`) to correctly match local commute patterns:
 * **Morning Peak Hour**: 8:00 AM – 12:00 PM IST
 * **Evening Peak Hour**: 5:00 PM – 9:00 PM IST
