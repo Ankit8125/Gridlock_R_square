@@ -216,7 +216,8 @@ def predict_event_impact(req: PredictionRequest, testing: bool = False):
             corridor=req.corridor,
             hour=req.hour,
             day_of_week=req.day_of_week,
-            generate_diversion=not testing
+            generate_diversion=not testing,
+            fetch_weather=not testing
         )
         return prediction
     except Exception as e:
@@ -278,7 +279,8 @@ def get_feedback_summary():
                     corridor=row['corridor_clean'],
                     hour=int(row['local_hour']) if pd.notnull(row['local_hour']) else 9,
                     day_of_week=int(row['local_day_of_week']) if pd.notnull(row['local_day_of_week']) else 1,
-                    generate_diversion=False
+                    generate_diversion=False,
+                    fetch_weather=False
                 )
                 
                 detailed_logs.append({
@@ -665,7 +667,8 @@ def ai_agent_command(req: AgentCommandRequest, testing: bool = False):
                 corridor=parsed["corridor"],
                 hour=parsed["hour"],
                 day_of_week=parsed["day_of_week"],
-                generate_diversion=False
+                generate_diversion=False,
+                fetch_weather=False
             )
             # Inject mock diversion plan for UI compatibility
             prediction["diversion_plan"] = {
