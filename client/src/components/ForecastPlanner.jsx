@@ -289,7 +289,12 @@ export default function ForecastPlanner() {
     <h2>TACTICAL DIVERSION PLAN</h2>
     <p style="font-weight:700;margin-bottom:8px;font-size:13px;color:#1e40af;">${prediction.diversion_plan.summary}</p>
     <ol style="margin-left:20px;padding-left:0;font-size:12px;line-height:1.5;">
-      ${prediction.diversion_plan.steps.map(s => `<li style="margin-bottom:4px;">${s}</li>`).join('')}
+      ${prediction.diversion_plan.steps.map(s => {
+        const stepText = typeof s === 'object' && s !== null
+          ? `${s.junction ? `[${s.junction}] ` : ''}${s.instruction || s.step || JSON.stringify(s)}`
+          : s;
+        return `<li style="margin-bottom:4px;">${stepText}</li>`;
+      }).join('')}
     </ol>
   </div>` : ''}
 
