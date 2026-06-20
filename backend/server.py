@@ -5,6 +5,17 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+# Load .env file manually if it exists
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(backend_dir, ".env")
+if os.path.exists(env_path):
+    with open(env_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, val = line.split("=", 1)
+                os.environ[key.strip()] = val.strip()
+
 import csv
 import json
 from fastapi import FastAPI, HTTPException, BackgroundTasks
@@ -534,6 +545,7 @@ def parse_incident_report_gemini(text: str, api_key: str) -> dict:
             res_data = json.loads(response.read().decode('utf-8'))
             text = res_data['candidates'][0]['content']['parts'][0]['text']
             params = json.loads(text)
+            print("[GEMINI] Successful API call: Incident report text parsed successfully.")
             return params
     except Exception as e:
         print(f"Gemini parsing failed: {e}")
@@ -619,6 +631,7 @@ def generate_dispatch_briefing_gemini(params: dict, pred: dict, api_key: str) ->
         with urllib.request.urlopen(req, timeout=5.0) as response:
             res_data = json.loads(response.read().decode('utf-8'))
             briefing = res_data['candidates'][0]['content']['parts'][0]['text']
+            print("[GEMINI] Successful API call: Dispatch briefing generated successfully.")
             return briefing.strip()
     except Exception as e:
         print(f"Gemini briefing failed: {e}")

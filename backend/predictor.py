@@ -27,6 +27,16 @@ class EventPredictor:
         backend_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(backend_dir)
         
+        # Load .env file manually if it exists
+        env_path = os.path.join(backend_dir, ".env")
+        if os.path.exists(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, val = line.split("=", 1)
+                        os.environ[key.strip()] = val.strip()
+        
         self.models_dir = os.path.join(backend_dir, "models")
         self.cleaned_csv = os.path.join(backend_dir, "artifacts", "cleaned_events.csv")
         
@@ -328,6 +338,7 @@ class EventPredictor:
                     text = res_data['candidates'][0]['content']['parts'][0]['text']
                     plan = json.loads(text)
                     if "summary" in plan and "steps" in plan:
+                        print("[GEMINI] Successful API call: Tactical Diversion Plan generated successfully.")
                         return plan
             except Exception as e:
                 print(f"Gemini API error: {e}, falling back to rule-based.")
