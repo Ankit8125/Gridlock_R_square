@@ -14,8 +14,11 @@ HIGH_VOLUME_CAUSES = [
 
 class EventPredictor:
     def __init__(self):
-        self.models_dir = r"d:\Coding\gridlock\Round 2\backend\models"
-        self.cleaned_csv = r"d:\Coding\gridlock\Round 2\backend\artifacts\cleaned_events.csv"
+        backend_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(backend_dir)
+        
+        self.models_dir = os.path.join(backend_dir, "models")
+        self.cleaned_csv = os.path.join(backend_dir, "artifacts", "cleaned_events.csv")
         
         # Load models if they exist
         self.duration_model = None
@@ -34,7 +37,7 @@ class EventPredictor:
             self.closure_model = self._limit_parallelism(joblib.load(closure_path))
             
         # Policy Adjustments logic
-        self.adjustments_path = r"d:\Coding\gridlock\Round 2\backend\artifacts\policy_adjustments.json"
+        self.adjustments_path = os.path.join(backend_dir, "artifacts", "policy_adjustments.json")
         self.load_adjustments()
 
         # Load database for similarity retrieval, junctions, hotspots, and corridor risks
@@ -111,7 +114,9 @@ class EventPredictor:
                 pass
 
     def update_policy_multipliers(self):
-        feedback_csv = r"d:\Coding\gridlock\Round 2\dataset\feedback_data.csv"
+        backend_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(backend_dir)
+        feedback_csv = os.path.join(project_root, "dataset", "feedback_data.csv")
         if not os.path.exists(feedback_csv) or self.df is None:
             return
         

@@ -30,7 +30,11 @@ app.add_middleware(
 # Initialize predictor
 predictor = EventPredictor()
 
-FEEDBACK_CSV_PATH = r"d:\Coding\gridlock\Round 2\dataset\feedback_data.csv"
+# Resolve paths relative to the server.py file
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(BACKEND_DIR)
+
+FEEDBACK_CSV_PATH = os.path.join(PROJECT_ROOT, "dataset", "feedback_data.csv")
 
 # Request Pydantic models
 class PredictionRequest(BaseModel):
@@ -57,7 +61,7 @@ def health_check():
 
 @app.get("/api/analytics")
 def get_analytics():
-    cleaned_csv = r"d:\Coding\gridlock\Round 2\backend\artifacts\cleaned_events.csv"
+    cleaned_csv = os.path.join(BACKEND_DIR, "artifacts", "cleaned_events.csv")
     if not os.path.exists(cleaned_csv):
         raise HTTPException(status_code=500, detail="Cleaned dataset not found. Run pipeline first.")
         
@@ -133,7 +137,7 @@ def get_analytics():
 
 @app.get("/api/correlation")
 def get_correlation():
-    cleaned_csv = r"d:\Coding\gridlock\Round 2\backend\artifacts\cleaned_events.csv"
+    cleaned_csv = os.path.join(BACKEND_DIR, "artifacts", "cleaned_events.csv")
     if not os.path.exists(cleaned_csv):
         raise HTTPException(status_code=500, detail="Cleaned dataset not found.")
         
@@ -244,7 +248,7 @@ def get_feedback_summary():
         logs = feedback_df.to_dict(orient='records')
         
         # Add basic stats comparison if clean database exists
-        cleaned_csv = r"d:\Coding\gridlock\Round 2\backend\artifacts\cleaned_events.csv"
+        cleaned_csv = os.path.join(BACKEND_DIR, "artifacts", "cleaned_events.csv")
         if os.path.exists(cleaned_csv):
             events_df = pd.read_csv(cleaned_csv)
             # Join matching actual feedback with details
