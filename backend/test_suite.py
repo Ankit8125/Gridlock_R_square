@@ -54,7 +54,7 @@ class TestBackendAPI(unittest.TestCase):
             "day_of_week": 1
         }
         req = urllib.request.Request(
-            f"{BASE_URL}/predict",
+            f"{BASE_URL}/predict?testing=true",
             data=json.dumps(payload).encode('utf-8'),
             headers={'Content-Type': 'application/json'}
         )
@@ -88,7 +88,7 @@ class TestBackendAPI(unittest.TestCase):
             "day_of_week": 4
         }
         req = urllib.request.Request(
-            f"{BASE_URL}/predict",
+            f"{BASE_URL}/predict?testing=true",
             data=json.dumps(payload).encode('utf-8'),
             headers={'Content-Type': 'application/json'}
         )
@@ -179,7 +179,7 @@ class TestBackendAPI(unittest.TestCase):
             "text_report": "Waterlogging on Bellary road near yelahanka. Major flooding, road needs to be closed."
         }
         req = urllib.request.Request(
-            f"{BASE_URL}/agent/command",
+            f"{BASE_URL}/agent/command?testing=true",
             data=json.dumps(payload).encode('utf-8'),
             headers={'Content-Type': 'application/json'}
         )

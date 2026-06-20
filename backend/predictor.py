@@ -295,7 +295,7 @@ class EventPredictor:
             }
 
     def generate_diversion_plan(self, cause: str, corridor: str, lat: float, lon: float, nearest_junctions: list, is_raining: bool) -> dict:
-        """Generate a step-by-step tactical diversion plan for field officers."""
+        """Generate a step-by-step tactical diversion plan for field officers using Gemini API."""
         import os
         import urllib.request
         import json
@@ -306,93 +306,44 @@ class EventPredictor:
             corridor_clean = 'Non-corridor'
 
         api_key = os.environ.get("GEMINI_API_KEY")
-        if api_key:
-            prompt = (
-                f"You are the ASTRAM Traffic Command Center AI for Bengaluru. "
-                f"An event of type '{cause_clean}' occurred on corridor '{corridor_clean}' at coordinates ({lat}, {lon}). "
-                f"The nearest traffic junctions are: {', '.join([j['name'] for j in nearest_junctions])}. "
-                f"Current weather is {'Rainy' if is_raining else 'Clear'}. "
-                f"Provide a tactical diversion plan in JSON format with two keys: "
-                f"1. 'summary': A concise 1-sentence briefing summary. "
-                f"2. 'steps': A list of 3-4 specific tactical steps for police constables "
-                f"directing traffic at the nearest junctions (using the junction names provided). "
-                f"Respond ONLY with raw JSON."
-            )
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
-            try:
-                body = {
-                    "contents": [{
-                        "parts": [{"text": prompt}]
-                    }],
-                    "generationConfig": {
-                        "responseMimeType": "application/json"
-                    }
-                }
-                req = urllib.request.Request(
-                    url,
-                    data=json.dumps(body).encode('utf-8'),
-                    headers={'Content-Type': 'application/json'}
-                )
-                with urllib.request.urlopen(req, timeout=5.0) as response:
-                    res_data = json.loads(response.read().decode('utf-8'))
-                    text = res_data['candidates'][0]['content']['parts'][0]['text']
-                    plan = json.loads(text)
-                    if "summary" in plan and "steps" in plan:
-                        print("[GEMINI] Successful API call: Tactical Diversion Plan generated successfully.")
-                        return plan
-            except Exception as e:
-                print(f"Gemini API error: {e}, falling back to rule-based.")
+        if not api_key:
+            raise ValueError("[GEMINI] Missing GEMINI_API_KEY environment variable. Cannot generate diversion plan.")
 
-        # Heuristic fallback
-        j1 = nearest_junctions[0]['name'] if len(nearest_junctions) > 0 else "Nearest Checkpoint"
-        j2 = nearest_junctions[1]['name'] if len(nearest_junctions) > 1 else "Secondary Link Junction"
-        j3 = nearest_junctions[2]['name'] if len(nearest_junctions) > 2 else "Outer Loop Junction"
-
-        steps = []
-        if cause_clean == 'accident':
-            summary = f"Accident on {corridor_clean} requires immediate local diversion to clear lanes."
-            steps = [
-                f"Stage emergency vehicles and a heavy tow-crane at {j1} to expedite vehicle removal.",
-                f"Close affected lanes and redirect light vehicular traffic via {j2} to prevent backup.",
-                f"Deploy 2 manual signal override constables at {j3} to clear downstream spillover."
-            ]
-        elif cause_clean == 'water_logging':
-            summary = f"Waterlogging on {corridor_clean} has reduced road capacity; diverting heavy traffic."
-            steps = [
-                f"Erect high-visibility warning barricades at {j1} to indicate deep water zones.",
-                f"Divert all heavy commercial vehicles at {j2} onto the elevated bypass or outer loop.",
-                f"Deploy BBMP pump coordination team at {j1} and manual traffic routing at {j3}."
-            ]
-        elif cause_clean in ['protest', 'procession', 'public_event']:
-            summary = f"Public gathering on {corridor_clean} requires a wider perimeter corridor closure."
-            steps = [
-                f"Enforce full road closure at {j1}; restrict transit of all private passenger vehicles.",
-                f"Establish major diversion points at {j2} and {j3} redirecting traffic towards parallel arterials.",
-                f"Coordinate with local station patrol cars to manage pedestrian spillover safely."
-            ]
-        elif cause_clean == 'construction':
-            summary = f"Ongoing construction on {corridor_clean} causes bottlenecks; staging lane restrictions."
-            steps = [
-                f"Place reflective traffic cones and safety hazard markers at {j1} to merge lanes safely.",
-                f"Redirect peak-hour traffic volumes at {j2} to secondary arterial routes.",
-                f"Deploy constable at {j3} during morning/evening peaks to override standard timers."
-            ]
-        else:
-            summary = f"Traffic obstruction at {corridor_clean} coordinates {lat:.4f}, {lon:.4f}; active monitoring."
-            steps = [
-                f"Deploy a field scout to {j1} to assess the bottleneck size and severity.",
-                f"If tailbacks exceed 500m, initiate soft diversion at {j2} towards outer link roads.",
-                f"Ensure signal cycle extension at {j3} is active to flush outbound traffic."
-            ]
-
-        if is_raining:
-            summary = "🌧️ [Rain Alert] " + summary
-            steps.append("Increase all signal green times by 20% to account for wet-weather speed reduction.")
-
-        return {
-            "summary": summary,
-            "steps": steps
+        prompt = (
+            f"You are the ASTRAM Traffic Command Center AI for Bengaluru. "
+            f"An event of type '{cause_clean}' occurred on corridor '{corridor_clean}' at coordinates ({lat}, {lon}). "
+            f"The nearest traffic junctions are: {', '.join([j['name'] for j in nearest_junctions])}. "
+            f"Current weather is {'Rainy' if is_raining else 'Clear'}. "
+            f"Provide a tactical diversion plan in JSON format with two keys: "
+            f"1. 'summary': A concise 1-sentence briefing summary. "
+            f"2. 'steps': A list of 3-4 specific tactical steps for police constables "
+            f"directing traffic at the nearest junctions (using the junction names provided). "
+            f"Respond ONLY with raw JSON."
+        )
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+        
+        body = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }],
+            "generationConfig": {
+                "responseMimeType": "application/json"
+            }
         }
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(body).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        with urllib.request.urlopen(req, timeout=30.0) as response:
+            res_data = json.loads(response.read().decode('utf-8'))
+            text = res_data['candidates'][0]['content']['parts'][0]['text']
+            plan = json.loads(text)
+            if "summary" in plan and "steps" in plan:
+                print("[GEMINI] Successful API call: Tactical Diversion Plan generated successfully.")
+                return plan
+            else:
+                raise ValueError(f"[GEMINI] Invalid response format from Gemini: {text}")
 
     def compute_cascade_probability(self, is_high_priority: bool, closure_recommended: bool,
                                     cause: str, corridor: str, is_peak_hour: bool,
@@ -622,9 +573,9 @@ class EventPredictor:
             return None
 
     def predict_base(self, cause, event_type, lat, lon, requires_road_closure, corridor, hour, day_of_week):
-        return self.predict(cause, event_type, lat, lon, requires_road_closure, corridor, hour, day_of_week, apply_adjustments=False)
+        return self.predict(cause, event_type, lat, lon, requires_road_closure, corridor, hour, day_of_week, apply_adjustments=False, generate_diversion=False)
 
-    def predict(self, cause, event_type, lat, lon, requires_road_closure, corridor, hour, day_of_week, apply_adjustments=True):
+    def predict(self, cause, event_type, lat, lon, requires_road_closure, corridor, hour, day_of_week, apply_adjustments=True, generate_diversion=True):
         cause_clean = str(cause).strip().lower()
         event_type_clean = str(event_type).strip().lower()
         requires_closure_bool = str(requires_road_closure).strip().upper() == 'TRUE'
@@ -854,14 +805,17 @@ class EventPredictor:
         station_allocations = self.get_station_allocation(float(lat), float(lon), total_officers, k=3)
 
         # Generate diversion plan
-        diversion_plan = self.generate_diversion_plan(
-            cause=cause_clean,
-            corridor=corridor_clean,
-            lat=float(lat),
-            lon=float(lon),
-            nearest_junctions=nearest_junctions,
-            is_raining=is_raining
-        )
+        if generate_diversion:
+            diversion_plan = self.generate_diversion_plan(
+                cause=cause_clean,
+                corridor=corridor_clean,
+                lat=float(lat),
+                lon=float(lon),
+                nearest_junctions=nearest_junctions,
+                is_raining=is_raining
+            )
+        else:
+            diversion_plan = None
 
         result = {
             "predicted_duration_minutes": round(predicted_duration, 1) if predicted_duration else None,

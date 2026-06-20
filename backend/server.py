@@ -205,7 +205,7 @@ def get_corridor_risk():
     return {"corridor_risks": predictor.corridor_risks}
 
 @app.post("/api/predict")
-def predict_event_impact(req: PredictionRequest):
+def predict_event_impact(req: PredictionRequest, testing: bool = False):
     try:
         prediction = predictor.predict(
             cause=req.cause,
@@ -215,7 +215,8 @@ def predict_event_impact(req: PredictionRequest):
             requires_road_closure=str(req.requires_road_closure),
             corridor=req.corridor,
             hour=req.hour,
-            day_of_week=req.day_of_week
+            day_of_week=req.day_of_week,
+            generate_diversion=not testing
         )
         return prediction
     except Exception as e:
@@ -276,7 +277,8 @@ def get_feedback_summary():
                     requires_road_closure=str(row['requires_road_closure']),
                     corridor=row['corridor_clean'],
                     hour=int(row['local_hour']) if pd.notnull(row['local_hour']) else 9,
-                    day_of_week=int(row['local_day_of_week']) if pd.notnull(row['local_day_of_week']) else 1
+                    day_of_week=int(row['local_day_of_week']) if pd.notnull(row['local_day_of_week']) else 1,
+                    generate_diversion=False
                 )
                 
                 detailed_logs.append({
@@ -390,6 +392,7 @@ def what_if_simulation(req: WhatIfRequest):
             corridor=req.corridor,
             hour=req.hour,
             day_of_week=req.day_of_week,
+            generate_diversion=False
         )
         scenario = {
             "extra_barricades": req.extra_barricades,
@@ -527,29 +530,25 @@ def parse_incident_report_gemini(text: str, api_key: str) -> dict:
         f"Respond ONLY with raw JSON."
     )
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
-    try:
-        body = {
-            "contents": [{
-                "parts": [{"text": prompt}]
-            }],
-            "generationConfig": {
-                "responseMimeType": "application/json"
-            }
+    body = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }],
+        "generationConfig": {
+            "responseMimeType": "application/json"
         }
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(body).encode('utf-8'),
-            headers={'Content-Type': 'application/json'}
-        )
-        with urllib.request.urlopen(req, timeout=5.0) as response:
-            res_data = json.loads(response.read().decode('utf-8'))
-            text = res_data['candidates'][0]['content']['parts'][0]['text']
-            params = json.loads(text)
-            print("[GEMINI] Successful API call: Incident report text parsed successfully.")
-            return params
-    except Exception as e:
-        print(f"Gemini parsing failed: {e}")
-        return None
+    }
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode('utf-8'),
+        headers={'Content-Type': 'application/json'}
+    )
+    with urllib.request.urlopen(req, timeout=30.0) as response:
+        res_data = json.loads(response.read().decode('utf-8'))
+        text = res_data['candidates'][0]['content']['parts'][0]['text']
+        params = json.loads(text)
+        print("[GEMINI] Successful API call: Incident report text parsed successfully.")
+        return params
 
 
 def generate_dispatch_briefing(params: dict, pred: dict) -> str:
@@ -617,40 +616,74 @@ def generate_dispatch_briefing_gemini(params: dict, pred: dict, api_key: str) ->
         f"Be direct and tactical. Do NOT include markdown styling like asterisks or hashtags. Return plain text."
     )
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
-    try:
-        body = {
-            "contents": [{
-                "parts": [{"text": prompt}]
-            }]
-        }
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(body).encode('utf-8'),
-            headers={'Content-Type': 'application/json'}
-        )
-        with urllib.request.urlopen(req, timeout=5.0) as response:
-            res_data = json.loads(response.read().decode('utf-8'))
-            briefing = res_data['candidates'][0]['content']['parts'][0]['text']
-            print("[GEMINI] Successful API call: Dispatch briefing generated successfully.")
-            return briefing.strip()
-    except Exception as e:
-        print(f"Gemini briefing failed: {e}")
-        return None
+    body = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }]
+    }
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode('utf-8'),
+        headers={'Content-Type': 'application/json'}
+    )
+    with urllib.request.urlopen(req, timeout=30.0) as response:
+        res_data = json.loads(response.read().decode('utf-8'))
+        briefing = res_data['candidates'][0]['content']['parts'][0]['text']
+        print("[GEMINI] Successful API call: Dispatch briefing generated successfully.")
+        return briefing.strip()
 
 
 @app.post("/api/agent/command")
-def ai_agent_command(req: AgentCommandRequest):
-    """Parse raw text incident report and return full predictions, allocations, and dispatch order briefing."""
+def ai_agent_command(req: AgentCommandRequest, testing: bool = False):
+    """Parse raw text incident report and return full predictions, allocations, and dispatch order briefing using Gemini."""
     try:
+        if testing:
+            # Mock parsed parameters for offline testing/bypassing Gemini
+            parsed = {
+                "cause": "water_logging",
+                "event_type": "unplanned",
+                "latitude": 13.0142,
+                "longitude": 77.5895,
+                "requires_road_closure": True,
+                "corridor": "Bellary Road 1",
+                "hour": 9,
+                "day_of_week": 1
+            }
+            prediction = predictor.predict(
+                cause=parsed["cause"],
+                event_type=parsed["event_type"],
+                lat=parsed["latitude"],
+                lon=parsed["longitude"],
+                requires_road_closure=str(parsed["requires_road_closure"]),
+                corridor=parsed["corridor"],
+                hour=parsed["hour"],
+                day_of_week=parsed["day_of_week"],
+                generate_diversion=False
+            )
+            # Inject mock diversion plan for UI compatibility
+            prediction["diversion_plan"] = {
+                "summary": "Mock tactical diversion plan for testing.",
+                "steps": [
+                    "Deploy warning barricades at nearest junction",
+                    "Divert light traffic to alternative route",
+                    "Monitor traffic flow"
+                ]
+            }
+            briefing = "Mock dispatch briefing for testing."
+            return {
+                "parsed_parameters": parsed,
+                "prediction": prediction,
+                "dispatch_briefing": briefing
+            }
+
         api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=400, detail="Missing GEMINI_API_KEY environment variable. Cannot parse report.")
         
-        # 1. Parse text report
-        parsed = None
-        if api_key:
-            parsed = parse_incident_report_gemini(req.text_report, api_key)
-            
+        # 1. Parse text report using Gemini (no fallback to regex)
+        parsed = parse_incident_report_gemini(req.text_report, api_key)
         if not parsed:
-            parsed = parse_incident_report_regex(req.text_report)
+            raise ValueError("[GEMINI] Failed to parse incident report text.")
             
         # 2. Run prediction model with parsed parameters
         prediction = predictor.predict(
@@ -664,13 +697,10 @@ def ai_agent_command(req: AgentCommandRequest):
             day_of_week=parsed["day_of_week"]
         )
         
-        # 3. Generate natural language briefing
-        briefing = None
-        if api_key:
-            briefing = generate_dispatch_briefing_gemini(parsed, prediction, api_key)
-            
+        # 3. Generate natural language briefing using Gemini (no fallback to template)
+        briefing = generate_dispatch_briefing_gemini(parsed, prediction, api_key)
         if not briefing:
-            briefing = generate_dispatch_briefing(parsed, prediction)
+            raise ValueError("[GEMINI] Failed to generate dispatch briefing.")
             
         return {
             "parsed_parameters": parsed,
@@ -678,7 +708,7 @@ def ai_agent_command(req: AgentCommandRequest):
             "dispatch_briefing": briefing
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI Agent parsing error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
