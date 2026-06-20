@@ -288,10 +288,10 @@ export default function AICommandAgent() {
               <div className="panel" style={{ padding: '1.25rem' }}>
                 <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: '#a5b4fc', marginBottom: '0.5rem' }}>Tactical Diversion Plan</h4>
                 <p style={{ fontSize: '12px', color: '#e2e8f0', marginBottom: '0.75rem', fontWeight: '600', lineSpacing: '1.4' }}>
-                  💡 {result.prediction.diversion_plan.summary}
+                  💡 {result.prediction.diversion_plan?.summary || "No summary provided."}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {result.prediction.diversion_plan.steps.map((step, idx) => (
+                  {Array.isArray(result.prediction.diversion_plan?.steps) && result.prediction.diversion_plan.steps.map((step, idx) => (
                     <div key={idx} style={{
                       fontSize: '11px', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.02)',
                       padding: '6px 10px', borderRadius: '6px', borderLeft: '3px solid #6366f1'

@@ -711,10 +711,10 @@ export default function ForecastPlanner() {
                   Tactical Diversion Instructions
                 </div>
                 <p style={{ fontSize: '12px', color: '#e2e8f0', marginBottom: '8px', fontWeight: '600' }}>
-                  {prediction.diversion_plan.summary}
+                  {prediction.diversion_plan.summary || "No summary provided."}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {prediction.diversion_plan.steps.map((step, i) => (
+                  {Array.isArray(prediction.diversion_plan.steps) && prediction.diversion_plan.steps.map((step, i) => (
                     <div key={i} style={{
                       fontSize: '11px', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.02)',
                       padding: '6px 10px', borderRadius: '6px', borderLeft: '3px solid #6366f1'
