@@ -394,6 +394,280 @@ def what_if_simulation(req: WhatIfRequest):
         raise HTTPException(status_code=500, detail=f"What-if simulation error: {str(e)}")
 
 
+class AgentCommandRequest(BaseModel):
+    text_report: str
+
+
+def parse_incident_report_regex(text: str) -> dict:
+    import datetime
+    t = text.lower()
+    
+    # 1. Parse Cause
+    cause = "others"
+    if "accident" in t or "crash" in t or "collision" in t:
+        cause = "accident"
+    elif "waterlogging" in t or "water logging" in t or "flood" in t or "water-logging" in t:
+        cause = "water_logging"
+    elif "tree" in t and ("fall" in t or "fell" in t or "down" in t):
+        cause = "tree_fall"
+    elif "pothole" in t or "pot hole" in t:
+        cause = "pot_holes"
+    elif "construction" in t or "roadwork" in t or "metro work" in t or "metro construction" in t:
+        cause = "construction"
+    elif "breakdown" in t or "broken down" in t or "stalled" in t:
+        cause = "vehicle_breakdown"
+    elif "vip" in t or "convoy" in t or "minister" in t or "governor" in t:
+        cause = "vip_movement"
+    elif "protest" in t or "strike" in t or "dharna" in t or "rally" in t:
+        cause = "protest"
+    elif "procession" in t or "march" in t or "parade" in t:
+        cause = "procession"
+    elif "event" in t or "concert" in t or "match" in t or "stadium" in t:
+        cause = "public_event"
+    elif "congest" in t or "traffic jam" in t or "slow" in t or "gridlock" in t:
+        cause = "congestion"
+        
+    # 2. Event type (planned/unplanned)
+    event_type = "unplanned"
+    if cause in ["vip_movement", "procession", "public_event", "construction"]:
+        event_type = "planned"
+        
+    # 3. Corridor lookup and coordinates mapping
+    corridor = "Non-corridor"
+    lat, lon = 12.9716, 77.5946 # Default Bengaluru center (Vidhana Soudha / MG Road area)
+    
+    if "orr east 1" in t or "bellandur" in t or "ecospace" in t or "marathahalli" in t:
+        corridor = "ORR East 1"
+        lat, lon = 12.9279, 77.6809
+    elif "orr east 2" in t or "hsr" in t or "sarjapur" in t:
+        corridor = "ORR East 2"
+        lat, lon = 12.9116, 77.6472
+    elif "orr north" in t or "hebbal" in t or "manyata" in t or "nagawara" in t:
+        corridor = "ORR North 1"
+        lat, lon = 13.0359, 77.5978
+    elif "orr west" in t or "banashankari" in t or "nayandahalli" in t:
+        corridor = "ORR West"
+        lat, lon = 12.9150, 77.5361
+    elif "hosur road" in t or "electronic city" in t or "silboard" in t or "silk board" in t:
+        corridor = "Hosur Road"
+        lat, lon = 12.9172, 77.6228
+    elif "tumkur road" in t or "peenya" in t or "yeshwanthpur" in t:
+        corridor = "Tumkur Road"
+        lat, lon = 13.0285, 77.5195
+    elif "mysore road" in t or "kengeri" in t or "nayandahalli" in t:
+        corridor = "Mysore Road"
+        lat, lon = 12.9230, 77.5020
+    elif "bellary road" in t or "yelahanka" in t or "mekhri" in t:
+        corridor = "Bellary Road 1"
+        lat, lon = 13.0142, 77.5895
+    elif "airport road" in t or "kia" in t or "kempegowda" in t:
+        corridor = "Airport Road"
+        lat, lon = 13.1986, 77.7066
+    elif "old madras road" in t or "indiranagar" in t or "kr puram" in t:
+        corridor = "Old Madras Road"
+        lat, lon = 12.9784, 77.6408
+    elif "bannerghatta" in t or "bg road" in t or "jp nagar" in t:
+        corridor = "Bannerghata Road"
+        lat, lon = 12.8950, 77.5980
+        
+    # 4. Requires road closure
+    requires_road_closure = False
+    if any(w in t for w in ["close", "blocked", "shut", "full block", "no entry", "barricaded"]):
+        requires_road_closure = True
+        
+    # 5. Hour and Day of Week
+    now = datetime.datetime.now()
+    hour = now.hour
+    day_of_week = now.weekday() # 0=Monday, 6=Sunday
+    
+    return {
+        "cause": cause,
+        "event_type": event_type,
+        "latitude": lat,
+        "longitude": lon,
+        "requires_road_closure": requires_road_closure,
+        "corridor": corridor,
+        "hour": hour,
+        "day_of_week": day_of_week
+    }
+
+
+def parse_incident_report_gemini(text: str, api_key: str) -> dict:
+    import urllib.request
+    import json
+    import datetime
+    now = datetime.datetime.now()
+    prompt = (
+        f"You are the ASTRAM Traffic Command Agent Parser for Bengaluru. "
+        f"Extract the following traffic incident parameters from this report: '{text}'. "
+        f"Current local hour is {now.hour}, day of week is {now.weekday()}. "
+        f"Allowed causes: 'vehicle_breakdown', 'others', 'pot_holes', 'construction', 'water_logging', 'accident', 'tree_fall', 'road_conditions', 'congestion', 'vip_movement', 'procession', 'protest', 'public_event'. "
+        f"Allowed corridors: 'ORR East 1', 'ORR East 2', 'ORR North 1', 'ORR North 2', 'ORR West', 'Hosur Road', 'Tumkur Road', 'Mysore Road', 'Bellary Road 1', 'Bellary Road 2', 'Old Madras Road', 'Bannerghata Road', 'Airport Road', or 'Non-corridor'. "
+        f"Find the coordinates if mentioned (otherwise map to coordinates of a key area in Bengaluru matching the corridor or description. E.g. Bellary Road: 13.0142, 77.5895; ORR East 1: 12.9279, 77.6809; Hosur Road: 12.9172, 77.6228; Default coordinates: 12.9716, 77.5946). "
+        f"Return a JSON object with these keys: "
+        f"1. 'cause': string "
+        f"2. 'event_type': 'planned' or 'unplanned' "
+        f"3. 'latitude': float "
+        f"4. 'longitude': float "
+        f"5. 'requires_road_closure': boolean "
+        f"6. 'corridor': string "
+        f"7. 'hour': integer (0-23) "
+        f"8. 'day_of_week': integer (0-6) "
+        f"Respond ONLY with raw JSON."
+    )
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    try:
+        body = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }],
+            "generationConfig": {
+                "responseMimeType": "application/json"
+            }
+        }
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(body).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        with urllib.request.urlopen(req, timeout=5.0) as response:
+            res_data = json.loads(response.read().decode('utf-8'))
+            text = res_data['candidates'][0]['content']['parts'][0]['text']
+            params = json.loads(text)
+            return params
+    except Exception as e:
+        print(f"Gemini parsing failed: {e}")
+        return None
+
+
+def generate_dispatch_briefing(params: dict, pred: dict) -> str:
+    import datetime
+    cause = params["cause"].replace("_", " ").title()
+    corridor = params["corridor"]
+    duration = pred["predicted_duration_minutes"]
+    severity = pred["impact"]["class"]
+    officers = pred["resources"]["manpower"]["total_officers"]
+    barricades = pred["resources"]["barricades"]
+    allocations = ", ".join([f"{a['officers']} officers from {a['station']}" for a in pred["resources"]["station_allocations"]])
+    
+    weather_alert = ""
+    if pred.get("weather", {}).get("is_raining"):
+        weather_alert = f"\n⚠️ WEATHER WARNING: Severe rain ({pred['weather']['rain_mm']}mm) reported at scene. Road friction reduced. Expect an extra 25% delay."
+        
+    briefing = (
+        f"🚨 BENGALURU TRAFFIC POLICE COMMAND CENTER DISPATCH BRIEFING\n"
+        f"-----------------------------------------------------------------\n"
+        f"INCIDENT: {cause} on corridor '{corridor}' at {datetime.datetime.now().strftime('%H:%M IST')}.\n"
+        f"SEVERITY: {severity} impact score ({pred['impact']['score']}/100).\n"
+        f"ESTIMATED CLEARANCE TIME: {duration:.15g} minutes (Interval: {pred['predicted_duration_interval']['min']:.15g} - {pred['predicted_duration_interval']['max']:.15g} min).\n"
+        f"ROAD CLOSURE STATUS: {'RECOMMENDED' if pred['closure_recommended'] else 'MONITORING'}.\n"
+        f"WEATHER STATUS: {pred.get('weather', {}).get('description', 'Clear')}.\n"
+        f"{weather_alert}\n"
+        f"TACTICAL DEPLOYMENT ORDER:\n"
+        f"- Dispatch a total of {officers} officers: {allocations}.\n"
+        f"- Deploy {barricades} warning barricades to redirect local traffic.\n\n"
+        f"DIVERSION DIRECTIONS:\n"
+        f"{pred['diversion_plan']['summary']}\n"
+        f"Steps:\n"
+    )
+    for i, step in enumerate(pred["diversion_plan"]["steps"], 1):
+        briefing += f"  {i}. {step}\n"
+        
+    briefing += (
+        f"\n-----------------------------------------------------------------\n"
+        f"REPORT GENERATED BY ASTRAM AI AGENT FOR URBAN MOBILITY"
+    )
+    return briefing
+
+
+def generate_dispatch_briefing_gemini(params: dict, pred: dict, api_key: str) -> str:
+    import urllib.request
+    import json
+    cause = params["cause"].replace("_", " ").title()
+    corridor = params["corridor"]
+    duration = pred["predicted_duration_minutes"]
+    severity = pred["impact"]["class"]
+    officers = pred["resources"]["manpower"]["total_officers"]
+    barricades = pred["resources"]["barricades"]
+    allocations = ", ".join([f"{a['officers']} officers from {a['station']}" for a in pred["resources"]["station_allocations"]])
+    diversion_steps = "\n".join([f"- {s}" for s in pred["diversion_plan"]["steps"]])
+    
+    prompt = (
+        f"You are the ASTRAM Traffic Command Center AI for Bengaluru. "
+        f"An incident of type '{cause}' occurred on corridor '{corridor}'. "
+        f"The prediction model estimated a clearance duration of {duration:.15g} minutes, "
+        f"an impact class of '{severity}', requiring {officers} officers and {barricades} barricades. "
+        f"The station allocations are: {allocations}. "
+        f"The tactical diversion steps are:\n{diversion_steps}. "
+        f"The weather is {pred.get('weather', {}).get('description', 'Clear')}. "
+        f"Write a professional, concise, and commanding dispatch order memo for police radio or field briefing. "
+        f"Include a clear header, incident detail summary, tactical deployment orders, and diversion steps. "
+        f"Be direct and tactical. Do NOT include markdown styling like asterisks or hashtags. Return plain text."
+    )
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    try:
+        body = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }]
+        }
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(body).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        with urllib.request.urlopen(req, timeout=5.0) as response:
+            res_data = json.loads(response.read().decode('utf-8'))
+            briefing = res_data['candidates'][0]['content']['parts'][0]['text']
+            return briefing.strip()
+    except Exception as e:
+        print(f"Gemini briefing failed: {e}")
+        return None
+
+
+@app.post("/api/agent/command")
+def ai_agent_command(req: AgentCommandRequest):
+    """Parse raw text incident report and return full predictions, allocations, and dispatch order briefing."""
+    try:
+        api_key = os.environ.get("GEMINI_API_KEY")
+        
+        # 1. Parse text report
+        parsed = None
+        if api_key:
+            parsed = parse_incident_report_gemini(req.text_report, api_key)
+            
+        if not parsed:
+            parsed = parse_incident_report_regex(req.text_report)
+            
+        # 2. Run prediction model with parsed parameters
+        prediction = predictor.predict(
+            cause=parsed["cause"],
+            event_type=parsed["event_type"],
+            lat=parsed["latitude"],
+            lon=parsed["longitude"],
+            requires_road_closure=str(parsed["requires_road_closure"]),
+            corridor=parsed["corridor"],
+            hour=parsed["hour"],
+            day_of_week=parsed["day_of_week"]
+        )
+        
+        # 3. Generate natural language briefing
+        briefing = None
+        if api_key:
+            briefing = generate_dispatch_briefing_gemini(parsed, prediction, api_key)
+            
+        if not briefing:
+            briefing = generate_dispatch_briefing(parsed, prediction)
+            
+        return {
+            "parsed_parameters": parsed,
+            "prediction": prediction,
+            "dispatch_briefing": briefing
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI Agent parsing error: {str(e)}")
+
+
 if __name__ == "__main__":
     import uvicorn
     # Run the server on port 8000
