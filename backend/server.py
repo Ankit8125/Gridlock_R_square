@@ -582,7 +582,11 @@ def generate_dispatch_briefing(params: dict, pred: dict) -> str:
         f"Steps:\n"
     )
     for i, step in enumerate(pred["diversion_plan"]["steps"], 1):
-        briefing += f"  {i}. {step}\n"
+        if isinstance(step, dict):
+            junc_str = f"[{step.get('junction')}] " if step.get('junction') else ""
+            briefing += f"  {i}. {junc_str}{step.get('instruction', step.get('step', step))}\n"
+        else:
+            briefing += f"  {i}. {step}\n"
         
     briefing += (
         f"\n-----------------------------------------------------------------\n"
@@ -601,7 +605,10 @@ def generate_dispatch_briefing_gemini(params: dict, pred: dict, api_key: str) ->
     officers = pred["resources"]["manpower"]["total_officers"]
     barricades = pred["resources"]["barricades"]
     allocations = ", ".join([f"{a['officers']} officers from {a['station']}" for a in pred["resources"]["station_allocations"]])
-    diversion_steps = "\n".join([f"- {s}" for s in pred["diversion_plan"]["steps"]])
+    diversion_steps = "\n".join([
+        f"- [{s.get('junction')}] {s.get('instruction', s.get('step', s))}" if isinstance(s, dict) else f"- {s}"
+        for s in pred["diversion_plan"]["steps"]
+    ])
     
     prompt = (
         f"You are the ASTRAM Traffic Command Center AI for Bengaluru. "

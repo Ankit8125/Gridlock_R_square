@@ -719,7 +719,9 @@ export default function ForecastPlanner() {
                       fontSize: '11px', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.02)',
                       padding: '6px 10px', borderRadius: '6px', borderLeft: '3px solid #6366f1'
                     }}>
-                      {step}
+                      {typeof step === 'object' && step !== null 
+                        ? `${step.junction ? `[${step.junction}] ` : ''}${step.instruction || step.step || JSON.stringify(step)}` 
+                        : step}
                     </div>
                   ))}
                 </div>
