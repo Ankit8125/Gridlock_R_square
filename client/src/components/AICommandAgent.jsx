@@ -220,7 +220,7 @@ export default function AICommandAgent() {
                     </h3>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
                       <MapPin size={12} />
-                      <span>{result.parsed_parameters.latitude.toFixed(4)}, {result.parsed_parameters.longitude.toFixed(4)}</span>
+                      <span>{Number(result.parsed_parameters.latitude).toFixed(4)}, {Number(result.parsed_parameters.longitude).toFixed(4)}</span>
                       <span style={{ margin: '0 4px' }}>·</span>
                       <span>Hour {result.parsed_parameters.hour}:00</span>
                     </div>

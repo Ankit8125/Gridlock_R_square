@@ -196,6 +196,7 @@ export default function ForecastPlanner() {
           day_of_week: parseInt(dayOfWeek)
         })
       });
+      if (!res.ok) throw new Error("Forecasting failed");
       const data = await res.json();
       setPrediction(data);
     } catch (err) {
@@ -222,6 +223,7 @@ export default function ForecastPlanner() {
           close_road: whatIfCloseRoad,
         })
       });
+      if (!res.ok) throw new Error("What-if failed");
       const data = await res.json();
       setWhatIfResult(data.simulation);
     } catch (err) {

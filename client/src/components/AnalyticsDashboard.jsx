@@ -142,7 +142,7 @@ export default function AnalyticsDashboard({ analytics, correlationData }) {
 
   // Monthly chart
   useEffect(() => {
-    if (!monthlyData.length) return;
+    if (!monthlyData.length || !analytics) return;
     if (monthChartRef.current) monthChartRef.current.destroy();
     const ctxMonth = document.getElementById('monthChart');
     if (ctxMonth) {
@@ -175,7 +175,7 @@ export default function AnalyticsDashboard({ analytics, correlationData }) {
       });
     }
     return () => { if (monthChartRef.current) monthChartRef.current.destroy(); };
-  }, [monthlyData]);
+  }, [monthlyData, analytics]);
 
   // Compute weekly heatmap grid max for normalization
   const weeklyMax = weeklyHeatmap.reduce((mx, cell) => Math.max(mx, cell.count), 1);
