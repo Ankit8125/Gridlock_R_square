@@ -97,7 +97,7 @@ def train_and_save_models():
     reg_candidates = [
         {
             "name": "Random Forest Regressor",
-            "model": RandomForestRegressor(random_state=42, n_jobs=-1),
+            "model": RandomForestRegressor(random_state=42),
             "grid": {
                 "regressor__n_estimators": [100, 150, 200],
                 "regressor__max_depth": [8, 12, 16, None],
@@ -146,7 +146,7 @@ def train_and_save_models():
             cv=3, 
             scoring='neg_mean_absolute_error', 
             random_state=42, 
-            n_jobs=-1
+            n_jobs=1
         )
         search.fit(X_train_dur, y_train_dur)
         
@@ -191,7 +191,7 @@ def train_and_save_models():
     clf_candidates = [
         {
             "name": "Random Forest Classifier",
-            "model": RandomForestClassifier(random_state=42, n_jobs=-1),
+            "model": RandomForestClassifier(random_state=42),
             "grid": {
                 "classifier__n_estimators": [100, 120, 150],
                 "classifier__max_depth": [6, 10, 14, None],
@@ -240,7 +240,7 @@ def train_and_save_models():
             cv=3, 
             scoring='f1_weighted', 
             random_state=42, 
-            n_jobs=-1
+            n_jobs=1
         )
         search.fit(X_train_clf, y_train_clf)
         
@@ -288,7 +288,7 @@ def train_and_save_models():
     close_candidates = [
         {
             "name": "Random Forest Closure Classifier",
-            "model": RandomForestClassifier(random_state=42, n_jobs=-1, class_weight='balanced'),
+            "model": RandomForestClassifier(random_state=42, class_weight='balanced'),
             "grid": {
                 "classifier__n_estimators": [120, 180, 240],
                 "classifier__max_depth": [8, 12, 16, None],
@@ -337,7 +337,7 @@ def train_and_save_models():
             cv=3,
             scoring='f1',
             random_state=42,
-            n_jobs=-1
+            n_jobs=1
         )
         search.fit(X_train_close, y_train_close)
 

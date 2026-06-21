@@ -28,7 +28,27 @@ export default function FeedbackLog() {
     try {
       const res = await fetch(`${API_BASE}/feedback/summary`);
       const data = await res.json();
-      setLogs(data.logs || []);
+      const serverLogs = data.logs || [];
+
+      // Retrieve locally saved logs
+      const localLogsStr = localStorage.getItem('astram_local_feedback_logs');
+      const localLogs = localLogsStr ? JSON.parse(localLogsStr) : [];
+
+      // Merge server logs and local logs, keyed by event_id.
+      // Local logs represent newer updates, so they take precedence.
+      const mergedMap = {};
+      serverLogs.forEach(log => {
+        if (log.event_id) {
+          mergedMap[log.event_id] = log;
+        }
+      });
+      localLogs.forEach(log => {
+        if (log.event_id) {
+          mergedMap[log.event_id] = log;
+        }
+      });
+
+      setLogs(Object.values(mergedMap));
     } catch (e) {
       console.error("Failed to load feedback logs", e);
     } finally {
@@ -115,6 +135,19 @@ export default function FeedbackLog() {
       const data = await res.json();
       if (data.status === 'success') {
         setFeedbackMsg("Feedback log submitted successfully! Recommendation policy updated dynamically.");
+        
+        // Save the detailed log entry locally to persist across Vercel stateless container recycles
+        if (data.log_entry) {
+          const localLogsStr = localStorage.getItem('astram_local_feedback_logs');
+          const localLogs = localLogsStr ? JSON.parse(localLogsStr) : [];
+          
+          // Filter out any existing local entry for this event_id
+          const updatedLocalLogs = localLogs.filter(log => log.event_id !== data.log_entry.event_id);
+          updatedLocalLogs.push(data.log_entry);
+          
+          localStorage.setItem('astram_local_feedback_logs', JSON.stringify(updatedLocalLogs));
+        }
+
         setFeedbackEventId('');
         setActualDuration('');
         setActualManpower('');

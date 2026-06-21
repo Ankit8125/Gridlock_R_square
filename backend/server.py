@@ -247,8 +247,62 @@ def log_feedback(req: FeedbackRequest, background_tasks: BackgroundTasks):
             
         # Trigger policy multipliers updates asynchronously (non-blocking)
         background_tasks.add_task(predictor.update_policy_multipliers)
+        
+        # Build detailed log entry to return to client immediately
+        detailed_log = {
+            "event_id": req.event_id,
+            "cause": "unknown",
+            "police_station": req.police_station,
+            "notes": req.notes,
+            "duration": {
+                "predicted": None,
+                "actual": float(req.actual_duration)
+            },
+            "manpower": {
+                "recommended": None,
+                "actual": int(req.actual_manpower_total)
+            },
+            "barricades": {
+                "recommended": None,
+                "actual": int(req.actual_barricades)
+            }
+        }
+        
+        cleaned_csv = get_path("backend/artifacts/cleaned_events.csv")
+        if os.path.exists(cleaned_csv):
+            events_df = pd.read_csv(cleaned_csv)
+            matching = events_df[events_df['id'] == req.event_id]
+            if not matching.empty:
+                row = matching.iloc[0]
+                pred_out = predictor.predict(
+                    cause=row['event_cause_clean'],
+                    event_type=row['event_type'],
+                    lat=row['latitude'],
+                    lon=row['longitude'],
+                    requires_road_closure=str(row['requires_road_closure']),
+                    corridor=row['corridor_clean'],
+                    hour=int(row['local_hour']) if pd.notnull(row['local_hour']) else 9,
+                    day_of_week=int(row['local_day_of_week']) if pd.notnull(row['local_day_of_week']) else 1,
+                    generate_diversion=False,
+                    fetch_weather=False
+                )
+                detailed_log.update({
+                    "cause": row['event_cause_clean'],
+                    "duration": {
+                        "predicted": pred_out['predicted_duration_minutes'],
+                        "actual": float(req.actual_duration)
+                    },
+                    "manpower": {
+                        "recommended": pred_out['resources']['manpower']['total_officers'],
+                        "actual": int(req.actual_manpower_total)
+                    },
+                    "barricades": {
+                        "recommended": pred_out['resources']['barricades'],
+                        "actual": int(req.actual_barricades)
+                    }
+                })
             
-        return {"status": "success", "message": "Feedback successfully logged"}
+        return {"status": "success", "message": "Feedback successfully logged", "log_entry": detailed_log}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Feedback log error: {str(e)}")
 
