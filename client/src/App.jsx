@@ -70,14 +70,14 @@ function App() {
 
   if (isLoadingGlobal && !analytics) {
     return (
-      <div className="app-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0b0f19', color: '#fff' }}>
+      <div className="app-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-color)', color: 'var(--text-primary)' }}>
         <div style={{ textAlign: 'center' }}>
           <div className="brand-logo" style={{ display: 'inline-block', marginBottom: '1.5rem', fontSize: '2rem', padding: '0.75rem 1.5rem' }}>ASTRAM</div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '0.5rem', letterSpacing: '0.5px' }}>Loading Event Intelligence...</h2>
-          <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '2rem' }}>Calibrating traffic modeling systems & loading Bengaluru GIS data</p>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.03)', padding: '8px 16px', borderRadius: '30px', border: '1px solid rgba(255,255,255,0.05)' }}>
-            <RefreshCw className="animate-spin" size={14} color="#3b82f6" style={{ animation: 'spin 1s linear infinite' }} />
-            <span style={{ fontSize: '12px', fontFamily: 'monospace', color: '#3b82f6' }}>Connecting to backend server...</span>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '2rem' }}>Calibrating traffic modeling systems & loading Bengaluru GIS data</p>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', background: 'var(--nav-bg)', padding: '8px 16px', borderRadius: '30px', border: '1px solid var(--border-color)' }}>
+            <RefreshCw className="animate-spin" size={14} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />
+            <span style={{ fontSize: '12px', fontFamily: 'monospace', color: 'var(--primary)' }}>Connecting to backend server...</span>
           </div>
         </div>
       </div>
@@ -86,12 +86,12 @@ function App() {
 
   if (errorMsg && !analytics) {
     return (
-      <div className="app-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0b0f19', color: '#fff', padding: '2rem' }}>
+      <div className="app-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-color)', color: 'var(--text-primary)', padding: '2rem' }}>
         <div style={{ textAlign: 'center', maxWidth: '450px' }}>
           <div className="brand-logo" style={{ display: 'inline-block', marginBottom: '1.5rem', fontSize: '2rem', padding: '0.75rem 1.5rem', background: 'linear-gradient(135deg, #ef4444, #b91c1c)' }}>ASTRAM</div>
           <AlertOctagon size={48} color="#ef4444" style={{ margin: '0 auto 1.5rem auto' }} />
           <h2 style={{ fontSize: '1.4rem', fontWeight: '800', marginBottom: '0.75rem', color: '#f87171' }}>Platform Connection Failure</h2>
-          <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '2rem', lineHeight: '1.5' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '2rem', lineHeight: '1.5' }}>
             {errorMsg}
           </p>
           <button onClick={refreshGlobalData} className="btn-primary" style={{ display: 'inline-flex', width: 'auto', padding: '10px 24px', margin: '0 auto' }}>
