@@ -1,6 +1,6 @@
 {
-  "total_rows": 8179,
-  "unplanned_count": 7712,
+  "total_rows": 8191,
+  "unplanned_count": 7724,
   "planned_count": 467,
   "trainable_duration_count": 3192,
   "p90_duration_minutes": 16708.07022559501,
@@ -11,8 +11,8 @@
     "others": 638,
     "pot_holes": 537,
     "construction": 480,
-    "water_logging": 461,
-    "accident": 368,
+    "water_logging": 467,
+    "accident": 374,
     "tree_fall": 284,
     "road_conditions": 170,
     "congestion": 136,
@@ -25,11 +25,11 @@
     "fog / low visibility": 2
   },
   "priority_counts": {
-    "low": 5443,
-    "high": 2736
+    "low": 5449,
+    "high": 2742
   },
   "police_station_counts": {
-    "yelahanka": 383,
+    "yelahanka": 395,
     "hal old airport": 361,
     "sadashivanagar": 302,
     "byatarayanapura": 297,
@@ -85,7 +85,7 @@
     "city market": 27
   },
   "peak_hour_distribution": {
-    "0": 5924,
+    "0": 5936,
     "1": 2255
   },
   "timezone_verified": true

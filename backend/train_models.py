@@ -99,19 +99,19 @@ def train_and_save_models():
             "name": "Random Forest Regressor",
             "model": RandomForestRegressor(random_state=42),
             "grid": {
-                "regressor__n_estimators": [100, 150, 200],
-                "regressor__max_depth": [8, 12, 16, None],
-                "regressor__min_samples_split": [2, 5, 10],
-                "regressor__min_samples_leaf": [1, 2, 4]
+                "regressor__n_estimators": [30],
+                "regressor__max_depth": [8, 12, None],
+                "regressor__min_samples_split": [2, 5],
+                "regressor__min_samples_leaf": [1, 2]
             }
         },
         {
             "name": "Gradient Boosting Regressor",
             "model": GradientBoostingRegressor(random_state=42),
             "grid": {
-                "regressor__n_estimators": [100, 150],
-                "regressor__learning_rate": [0.01, 0.05, 0.1, 0.2],
-                "regressor__max_depth": [3, 5, 8],
+                "regressor__n_estimators": [30],
+                "regressor__learning_rate": [0.05, 0.1],
+                "regressor__max_depth": [3, 5],
                 "regressor__min_samples_split": [2, 5],
                 "regressor__min_samples_leaf": [1, 2]
             }
@@ -120,10 +120,10 @@ def train_and_save_models():
             "name": "Hist Gradient Boosting Regressor",
             "model": HistGradientBoostingRegressor(random_state=42),
             "grid": {
-                "regressor__max_iter": [100, 150, 200],
-                "regressor__learning_rate": [0.01, 0.05, 0.1, 0.2],
-                "regressor__max_depth": [5, 8, 12],
-                "regressor__min_samples_leaf": [10, 20, 40]
+                "regressor__max_iter": [30],
+                "regressor__learning_rate": [0.05, 0.1],
+                "regressor__max_depth": [5, 8],
+                "regressor__min_samples_leaf": [10, 20]
             }
         }
     ]
@@ -142,8 +142,8 @@ def train_and_save_models():
         search = RandomizedSearchCV(
             pipeline, 
             param_distributions=candidate['grid'], 
-            n_iter=8, 
-            cv=3, 
+            n_iter=3, 
+            cv=2, 
             scoring='neg_mean_absolute_error', 
             random_state=42, 
             n_jobs=1
@@ -193,19 +193,19 @@ def train_and_save_models():
             "name": "Random Forest Classifier",
             "model": RandomForestClassifier(random_state=42),
             "grid": {
-                "classifier__n_estimators": [100, 120, 150],
-                "classifier__max_depth": [6, 10, 14, None],
-                "classifier__min_samples_split": [2, 4, 8],
-                "classifier__min_samples_leaf": [1, 2, 4]
+                "classifier__n_estimators": [30],
+                "classifier__max_depth": [6, 10, None],
+                "classifier__min_samples_split": [2, 4],
+                "classifier__min_samples_leaf": [1, 2]
             }
         },
         {
             "name": "Gradient Boosting Classifier",
             "model": GradientBoostingClassifier(random_state=42),
             "grid": {
-                "classifier__n_estimators": [100, 120],
-                "classifier__learning_rate": [0.01, 0.05, 0.1, 0.2],
-                "classifier__max_depth": [3, 5, 8],
+                "classifier__n_estimators": [30],
+                "classifier__learning_rate": [0.05, 0.1],
+                "classifier__max_depth": [3, 5],
                 "classifier__min_samples_split": [2, 4],
                 "classifier__min_samples_leaf": [1, 2]
             }
@@ -214,10 +214,10 @@ def train_and_save_models():
             "name": "Hist Gradient Boosting Classifier",
             "model": HistGradientBoostingClassifier(random_state=42),
             "grid": {
-                "classifier__max_iter": [100, 120],
-                "classifier__learning_rate": [0.01, 0.05, 0.1, 0.2],
-                "classifier__max_depth": [5, 8, 12],
-                "classifier__min_samples_leaf": [10, 20, 40]
+                "classifier__max_iter": [30],
+                "classifier__learning_rate": [0.05, 0.1],
+                "classifier__max_depth": [5, 8],
+                "classifier__min_samples_leaf": [10, 20]
             }
         }
     ]
@@ -236,8 +236,8 @@ def train_and_save_models():
         search = RandomizedSearchCV(
             pipeline, 
             param_distributions=candidate['grid'], 
-            n_iter=8, 
-            cv=3, 
+            n_iter=3, 
+            cv=2, 
             scoring='f1_weighted', 
             random_state=42, 
             n_jobs=1
@@ -290,31 +290,31 @@ def train_and_save_models():
             "name": "Random Forest Closure Classifier",
             "model": RandomForestClassifier(random_state=42, class_weight='balanced'),
             "grid": {
-                "classifier__n_estimators": [120, 180, 240],
-                "classifier__max_depth": [8, 12, 16, None],
-                "classifier__min_samples_split": [2, 4, 8],
-                "classifier__min_samples_leaf": [1, 2, 4]
+                "classifier__n_estimators": [30],
+                "classifier__max_depth": [8, 12, None],
+                "classifier__min_samples_split": [2, 4],
+                "classifier__min_samples_leaf": [1, 2]
             }
         },
         {
             "name": "Gradient Boosting Closure Classifier",
             "model": GradientBoostingClassifier(random_state=42),
             "grid": {
-                "classifier__n_estimators": [100, 140],
-                "classifier__learning_rate": [0.03, 0.05, 0.1, 0.2],
-                "classifier__max_depth": [2, 3, 5],
+                "classifier__n_estimators": [30],
+                "classifier__learning_rate": [0.05, 0.1],
+                "classifier__max_depth": [3, 5],
                 "classifier__min_samples_split": [2, 4],
-                "classifier__min_samples_leaf": [1, 2, 4]
+                "classifier__min_samples_leaf": [1, 2]
             }
         },
         {
             "name": "Hist Gradient Boosting Closure Classifier",
             "model": HistGradientBoostingClassifier(random_state=42),
             "grid": {
-                "classifier__max_iter": [100, 140],
-                "classifier__learning_rate": [0.03, 0.05, 0.1, 0.2],
-                "classifier__max_depth": [4, 8, 12],
-                "classifier__min_samples_leaf": [10, 20, 40]
+                "classifier__max_iter": [30],
+                "classifier__learning_rate": [0.05, 0.1],
+                "classifier__max_depth": [4, 8],
+                "classifier__min_samples_leaf": [10, 20]
             }
         }
     ]
@@ -333,8 +333,8 @@ def train_and_save_models():
         search = RandomizedSearchCV(
             pipeline,
             param_distributions=candidate['grid'],
-            n_iter=8,
-            cv=3,
+            n_iter=3,
+            cv=2,
             scoring='f1',
             random_state=42,
             n_jobs=1
