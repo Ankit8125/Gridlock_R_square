@@ -1,0 +1,33 @@
+# Python temporary and cache files
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual Environments
+env
+env/
+venv/
+.env/
+ENV/
+*.venv
+
+# Environment variables (sensitive data)
+.env
+.env.local
+
+# Logs
+*.log
+logs/
+
+# Node modules and build files
+node_modules/
+dist/
+dist-ssr/
+
+# IDEs/Editors
+.vscode/
+.idea/
+.DS_Store

@@ -286,7 +286,7 @@ export default function AnalyticsDashboard({ analytics, correlationData }) {
       <div className="panel">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
           <MapPin size={16} color="#10b981" />
-          <h2 className="panel-title">Chronic Incident Venues — Repeat Offender Locations</h2>
+          <h2 className="panel-title">Chronic Incident Venues — Recurrent Obstruction Hotspots</h2>
         </div>
         <div className="table-wrapper">
           <table>
