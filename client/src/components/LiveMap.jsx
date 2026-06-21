@@ -38,7 +38,7 @@ export default function LiveMap({ junctions }) {
     const map = L.map('live-map').setView([12.978, 77.599], 12);
     liveMapRef.current = map;
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       attribution: '©OpenStreetMap ©CartoDB',
       maxZoom: 19
     }).addTo(map);
