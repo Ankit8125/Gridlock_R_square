@@ -18,7 +18,7 @@ if os.path.exists(env_path):
 
 import csv
 import json
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
@@ -38,14 +38,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from backend.path_config import get_path, initialize_writable_filesystem
+
+# Initialize Vercel writable tmp structure
+initialize_writable_filesystem()
+
 # Initialize predictor
 predictor = EventPredictor()
 
-# Resolve paths relative to the server.py file
-BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(BACKEND_DIR)
-
-FEEDBACK_CSV_PATH = os.path.join(PROJECT_ROOT, "dataset", "feedback_data.csv")
+FEEDBACK_CSV_PATH = get_path("dataset/feedback_data.csv")
 
 # Request Pydantic models
 class PredictionRequest(BaseModel):
@@ -72,7 +73,7 @@ def health_check():
 
 @app.get("/api/analytics")
 def get_analytics():
-    cleaned_csv = os.path.join(BACKEND_DIR, "artifacts", "cleaned_events.csv")
+    cleaned_csv = get_path("backend/artifacts/cleaned_events.csv")
     if not os.path.exists(cleaned_csv):
         raise HTTPException(status_code=500, detail="Cleaned dataset not found. Run pipeline first.")
         
@@ -148,7 +149,7 @@ def get_analytics():
 
 @app.get("/api/correlation")
 def get_correlation():
-    cleaned_csv = os.path.join(BACKEND_DIR, "artifacts", "cleaned_events.csv")
+    cleaned_csv = get_path("backend/artifacts/cleaned_events.csv")
     if not os.path.exists(cleaned_csv):
         raise HTTPException(status_code=500, detail="Cleaned dataset not found.")
         
@@ -261,7 +262,7 @@ def get_feedback_summary():
         logs = feedback_df.to_dict(orient='records')
         
         # Add basic stats comparison if clean database exists
-        cleaned_csv = os.path.join(BACKEND_DIR, "artifacts", "cleaned_events.csv")
+        cleaned_csv = get_path("backend/artifacts/cleaned_events.csv")
         if os.path.exists(cleaned_csv):
             events_df = pd.read_csv(cleaned_csv)
             # Join matching actual feedback with details
@@ -719,6 +720,110 @@ def ai_agent_command(req: AgentCommandRequest, testing: bool = False):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/upload-csv")
+async def upload_csv_data(file: UploadFile = File(...)):
+    """Upload additional CSV data, merge it with existing dataset, and retrain models automatically."""
+    try:
+        # 1. Read uploaded CSV contents
+        new_df = pd.read_csv(file.file)
+        if new_df.empty:
+            raise HTTPException(status_code=400, detail="Uploaded CSV file is empty.")
+            
+        # 2. Load existing dataset
+        source_csv_path = get_path("dataset/Astram event data_anonymized.csv")
+        if os.path.exists(source_csv_path):
+            existing_df = pd.read_csv(source_csv_path, low_memory=False)
+        else:
+            raise HTTPException(status_code=500, detail="Base dataset not found in storage.")
+            
+        # 3. Standardize/align columns of the new DataFrame
+        required_cols = {
+            'event_cause': 'others',
+            'start_datetime': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S+00:00'),
+            'closed_datetime': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S+00:00'),
+            'resolved_datetime': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S+00:00'),
+            'status': 'resolved',
+            'latitude': 12.9716,
+            'longitude': 77.5946,
+            'police_station': 'no_police_station',
+            'corridor': 'Non-corridor',
+            'junction': 'unknown',
+            'zone': 'unknown',
+            'event_type': 'unplanned',
+            'requires_road_closure': 'False'
+        }
+        
+        # Ensure all columns exist in new dataframe, filling defaults if missing
+        for col, default_val in required_cols.items():
+            if col not in new_df.columns:
+                new_df[col] = default_val
+                
+        # Fill missing values within columns that do exist
+        for col, default_val in required_cols.items():
+            new_df[col] = new_df[col].fillna(default_val)
+            
+        # If ID column is missing or empty, generate unique ones
+        if 'id' not in new_df.columns:
+            new_df['id'] = ''
+        
+        existing_max_id = 0
+        for val in existing_df['id'].dropna():
+            val_str = str(val)
+            if val_str.startswith('FKID') and val_str[4:].isdigit():
+                existing_max_id = max(existing_max_id, int(val_str[4:]))
+                
+        new_ids = []
+        for idx in range(len(new_df)):
+            new_ids.append(f"FKID{existing_max_id + 1 + idx:06d}")
+        new_df['id'] = np.where(new_df['id'].astype(str).str.strip() == '', new_ids, new_df['id'])
+        
+        # Ensure all columns in existing_df exist in new_df (defaulting to NaN for missing ones)
+        for col in existing_df.columns:
+            if col not in new_df.columns:
+                new_df[col] = np.nan
+                
+        # Select matching columns to align with existing dataset
+        new_df = new_df[existing_df.columns]
+        
+        # 4. Concatenate and save to writable path
+        combined_df = pd.concat([existing_df, new_df], ignore_index=True)
+        combined_df.to_csv(source_csv_path, index=False)
+        
+        # 5. Run data cleaning pipeline
+        from backend.data_pipeline import clean_and_preprocess_data
+        clean_and_preprocess_data(source_csv_path)
+        
+        # 6. Run model retraining
+        from backend.train_models import train_and_save_models
+        train_and_save_models()
+        
+        # 7. Hot-reload models in predictor
+        predictor.reload_models()
+        
+        return {
+            "status": "success",
+            "message": "CSV uploaded, merged, and models retrained successfully.",
+            "uploaded_records_count": len(new_df),
+            "total_records_count": len(combined_df)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"CSV Upload & Retraining error: {str(e)}")
+
+
+@app.get("/api/model-diagnostic")
+def get_model_diagnostic():
+    """Return model training comparison results and metrics."""
+    results_path = get_path("backend/artifacts/model_comparison_results.json")
+    if os.path.exists(results_path):
+        try:
+            with open(results_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error reading model diagnostics: {str(e)}")
+    return {"error": "Model diagnostics not found."}
 
 
 if __name__ == "__main__":

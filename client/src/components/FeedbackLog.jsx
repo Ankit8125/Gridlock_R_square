@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Chart } from 'chart.js/auto';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, RefreshCw } from 'lucide-react';
 
 const API_BASE = "http://127.0.0.1:8000/api";
 
@@ -15,16 +15,21 @@ export default function FeedbackLog() {
   
   // Data State
   const [logs, setLogs] = useState([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState('');
   const feedbackChartRef = useRef(null);
 
   const fetchFeedbackLogs = async () => {
+    setIsLoadingLogs(true);
     try {
       const res = await fetch(`${API_BASE}/feedback/summary`);
       const data = await res.json();
       setLogs(data.logs || []);
     } catch (e) {
       console.error("Failed to load feedback logs", e);
+    } finally {
+      setIsLoadingLogs(false);
     }
   };
 
@@ -90,6 +95,7 @@ export default function FeedbackLog() {
   const handleFeedbackSubmit = async (e) => {
     e.preventDefault();
     setFeedbackMsg('');
+    setIsSubmitting(true);
     try {
       const res = await fetch(`${API_BASE}/feedback`, {
         method: 'POST',
@@ -119,6 +125,8 @@ export default function FeedbackLog() {
     } catch (err) {
       setFeedbackMsg("Error submitting feedback to server.");
       console.error(err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -219,8 +227,17 @@ export default function FeedbackLog() {
             />
           </div>
 
-          <button type="submit" className="btn-primary">
-            <PlusCircle size={16} /> Log Resolution Details
+          <button type="submit" className="btn-primary" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <RefreshCw className="animate-spin" size={16} style={{ animation: 'spin 1.5s linear infinite' }} />
+                Saving Details...
+              </>
+            ) : (
+              <>
+                <PlusCircle size={16} /> Log Resolution Details
+              </>
+            )}
           </button>
         </form>
       </div>
@@ -229,7 +246,12 @@ export default function FeedbackLog() {
       <div className="forecast-results">
         <div className="panel">
           <h2 className="panel-title" style={{ marginBottom: '1rem' }}>Forecast vs. Actual Performance (Post-Event Learning Loop)</h2>
-          {logs.length > 0 ? (
+          {isLoadingLogs ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '240px', gap: '10px' }}>
+              <RefreshCw className="animate-spin" size={32} color="var(--primary)" style={{ animation: 'spin 1.5s linear infinite' }} />
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Loading performance history...</p>
+            </div>
+          ) : logs.length > 0 ? (
             <>
               <div style={{ height: '240px', marginBottom: '1.5rem', position: 'relative' }}>
                 <canvas id="feedbackChart"></canvas>

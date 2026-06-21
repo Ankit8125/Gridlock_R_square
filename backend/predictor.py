@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from math import radians, cos, sin, asin, sqrt
 from backend.impact_scoring import compute_impact_score
+from backend.path_config import get_path
 
 
 def haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -37,33 +38,43 @@ class EventPredictor:
                         key, val = line.split("=", 1)
                         os.environ[key.strip()] = val.strip()
         
-        self.models_dir = os.path.join(backend_dir, "models")
-        self.cleaned_csv = os.path.join(backend_dir, "artifacts", "cleaned_events.csv")
+        self.models_dir = get_path("backend/models")
+        self.cleaned_csv = get_path("backend/artifacts/cleaned_events.csv")
         
         # Load models if they exist
         self.duration_model = None
         self.priority_model = None
         self.closure_model = None
         
+        self.reload_models()
+            
+        # Policy Adjustments logic
+        self.adjustments_path = get_path("backend/artifacts/policy_adjustments.json")
+        self.load_adjustments()
+
+        # Weather cache
+        self._weather_cache = {}
+
+    def reload_models(self):
+        """Reload models and database from the writable directory."""
         dur_path = os.path.join(self.models_dir, "duration_model.joblib")
         clf_path = os.path.join(self.models_dir, "priority_model.joblib")
         closure_path = os.path.join(self.models_dir, "closure_model.joblib")
         
         if os.path.exists(dur_path):
             self.duration_model = self._limit_parallelism(joblib.load(dur_path))
+            print("Successfully reloaded duration model.")
         if os.path.exists(clf_path):
             self.priority_model = self._limit_parallelism(joblib.load(clf_path))
+            print("Successfully reloaded priority model.")
         if os.path.exists(closure_path):
             self.closure_model = self._limit_parallelism(joblib.load(closure_path))
+            print("Successfully reloaded road closure model.")
             
-        # Policy Adjustments logic
-        self.adjustments_path = os.path.join(backend_dir, "artifacts", "policy_adjustments.json")
-        self.load_adjustments()
+        self.load_database()
 
-        # Weather cache
-        self._weather_cache = {}
-
-        # Load database for similarity retrieval, junctions, hotspots, and corridor risks
+    def load_database(self):
+        """Load database for similarity retrieval, junctions, hotspots, and corridor risks."""
         if os.path.exists(self.cleaned_csv):
             self.df = pd.read_csv(self.cleaned_csv)
             
@@ -432,9 +443,7 @@ class EventPredictor:
         }
 
     def update_policy_multipliers(self):
-        backend_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(backend_dir)
-        feedback_csv = os.path.join(project_root, "dataset", "feedback_data.csv")
+        feedback_csv = get_path("dataset/feedback_data.csv")
         if not os.path.exists(feedback_csv) or self.df is None:
             return
         

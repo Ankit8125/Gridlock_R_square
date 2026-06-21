@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { Info, Users, AlertTriangle, Zap, Download, TrendingDown, CloudRain, Compass } from 'lucide-react';
+import { Info, Users, AlertTriangle, Zap, Download, TrendingDown, CloudRain, Compass, RefreshCw } from 'lucide-react';
 
 const API_BASE = "http://127.0.0.1:8000/api";
 
@@ -499,7 +499,15 @@ export default function ForecastPlanner() {
           </div>
         </div>
 
-        {prediction ? (
+        {isPredicting ? (
+          <div className="panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '350px', textAlign: 'center', gap: '1rem' }}>
+            <RefreshCw className="animate-spin" size={40} color="var(--primary)" style={{ animation: 'spin 1.5s linear infinite' }} />
+            <h3 style={{ color: 'var(--text-primary)', fontWeight: '700' }}>Analyzing Event Impact...</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '300px' }}>
+              Querying local meteorological records, executing model pipelines, mapping junctions, and constructing detour routing.
+            </p>
+          </div>
+        ) : prediction ? (
           <div className="panel">
             <div className="panel-header">
               <h2 className="panel-title">Forecaster Response</h2>
@@ -828,6 +836,12 @@ export default function ForecastPlanner() {
                   {isSimulating ? 'Simulating...' : 'Simulate'}
                 </button>
               </div>
+              {isSimulating && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', fontSize: '11px', color: 'var(--primary)' }}>
+                  <RefreshCw className="animate-spin" size={12} style={{ animation: 'spin 1.5s linear infinite' }} />
+                  <span>Recalculating impact with simulation inputs...</span>
+                </div>
+              )}
               {whatIfResult && (
                 <div style={{
                   background: whatIfResult.duration_change_minutes < -15 ? 'rgba(16,185,129,0.08)' : 'rgba(99,102,241,0.08)',
