@@ -3,7 +3,10 @@ import { Chart } from 'chart.js/auto';
 import { Database, TrendingUp, Clock, Shield, MapPin, AlertTriangle } from 'lucide-react';
 import CorrelationGrid from './CorrelationGrid';
 
-const API_BASE = "http://127.0.0.1:8000/api";
+const API_BASE = import.meta.env.VITE_API_BASE || 
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
+    ? "http://127.0.0.1:8000/api" 
+    : "/api");
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 

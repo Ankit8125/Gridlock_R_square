@@ -1,0 +1,8 @@
+client/node_modules
+client/dist
+.git
+env
+*.pyc
+__pycache__
+backend/__pycache__
+backend/models/__pycache__
