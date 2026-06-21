@@ -153,7 +153,7 @@ export default function AICommandAgent() {
         {/* Left Side: Input, Logs, & Chat History */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div className="panel" style={{ height: 'fit-content', marginBottom: 0 }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '1rem', color: '#a5b4fc' }}>Ingest Unstructured Log</h3>
+            <h3 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '1rem', color: 'var(--primary)' }}>Ingest Unstructured Log</h3>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <textarea
@@ -351,7 +351,7 @@ export default function AICommandAgent() {
 
               {/* Resource Requirements & Dispatch Order */}
               <div className="panel" style={{ padding: '1.25rem', marginBottom: 0 }}>
-                <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: '#a5b4fc', marginBottom: '0.75rem' }}>Resource Recommendations</h4>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--primary)', marginBottom: '0.75rem' }}>Resource Recommendations</h4>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '1rem' }}>
                   <div style={{
                     background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.2)',
@@ -392,7 +392,7 @@ export default function AICommandAgent() {
 
               {/* Diversion Directives */}
               <div className="panel" style={{ padding: '1.25rem', marginBottom: 0 }}>
-                <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: '#a5b4fc', marginBottom: '0.5rem' }}>Tactical Diversion Plan</h4>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--primary)', marginBottom: '0.5rem' }}>Tactical Diversion Plan</h4>
                 <p style={{ fontSize: '12px', color: 'var(--text-primary)', marginBottom: '0.75rem', fontWeight: '600', lineHeight: '1.4' }}>
                   💡 {result.prediction.diversion_plan?.summary || "No summary provided."}
                 </p>

@@ -128,7 +128,7 @@ export default function LiveMap({ junctions }) {
   return (
     <div className="livemap-container">
       {/* Map */}
-      <div style={{ flex: 1, position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(99,102,241,0.3)' }}>
+      <div style={{ flex: 1, position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
         <div id="live-map" style={{ width: '100%', height: '100%', minHeight: '520px' }} />
 
         {/* Toggle */}
@@ -140,9 +140,10 @@ export default function LiveMap({ junctions }) {
             onClick={() => setShowTrafficHeatmap(!showTrafficHeatmap)}
             style={{
               padding: '6px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-              background: showTrafficHeatmap ? '#6366f1' : 'rgba(30,30,50,0.9)',
-              color: '#fff', fontSize: '12px', fontWeight: '600',
-              backdropFilter: 'blur(8px)'
+              background: showTrafficHeatmap ? 'var(--primary)' : 'var(--card-bg)',
+              color: showTrafficHeatmap ? '#fff' : 'var(--text-primary)', fontSize: '12px', fontWeight: '600',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid var(--border-color)'
             }}
           >
             {showTrafficHeatmap ? '🔥 Hide Heatmap' : '🔥 Show Heatmap'}
@@ -152,11 +153,11 @@ export default function LiveMap({ junctions }) {
         {/* Legend */}
         <div style={{
           position: 'absolute', bottom: '12px', left: '12px', zIndex: 999,
-          background: 'rgba(15,15,25,0.92)', border: '1px solid rgba(99,102,241,0.3)',
-          borderRadius: '10px', padding: '10px 14px', fontSize: '11px', color: '#e2e8f0',
+          background: 'var(--panel-bg)', border: '1px solid var(--border-color)',
+          borderRadius: '10px', padding: '10px 14px', fontSize: '11px', color: 'var(--text-primary)',
           backdropFilter: 'blur(8px)'
         }}>
-          <div style={{ fontWeight: '700', marginBottom: '6px', color: '#a5b4fc' }}>Vulnerability Score</div>
+          <div style={{ fontWeight: '700', marginBottom: '6px', color: 'var(--primary)' }}>Vulnerability Score</div>
           {[['#ef4444', '≥ 60 — High'], ['#f59e0b', '30–59 — Moderate'], ['#3b82f6', '< 30 — Low']].map(([c, l]) => (
             <div key={l} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
               <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: c }} />
@@ -170,7 +171,7 @@ export default function LiveMap({ junctions }) {
       <div className="livemap-sidebar">
         {/* Surge Alerts */}
         <div style={{
-          background: 'rgba(20,20,40,0.85)', border: '1px solid rgba(239,68,68,0.4)',
+          background: 'var(--panel-bg)', border: '1px solid var(--border-color)',
           borderRadius: '12px', padding: '1rem'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
@@ -178,7 +179,7 @@ export default function LiveMap({ junctions }) {
             <span style={{ fontWeight: '700', color: '#ef4444', fontSize: '13px' }}>SURGE ALERTS</span>
           </div>
           {surgeAlerts.length === 0 ? (
-            <p style={{ color: '#64748b', fontSize: '12px' }}>No surge anomalies detected</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>No surge anomalies detected</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '220px', overflowY: 'auto' }}>
               {surgeAlerts.slice(0, 8).map((alert, i) => (
@@ -187,10 +188,10 @@ export default function LiveMap({ junctions }) {
                   borderLeft: `3px solid ${getSeverityColor(alert.severity)}`,
                   borderRadius: '8px', padding: '8px 10px'
                 }}>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#e2e8f0', marginBottom: '2px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '2px' }}>
                     {alert.corridor}
                   </div>
-                  <div style={{ fontSize: '10px', color: '#94a3b8' }}>
+                  <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
                     ↑ {alert.surge_factor}× surge · {alert.recent_monthly_rate}/mo recent
                   </div>
                   <div style={{
@@ -209,12 +210,12 @@ export default function LiveMap({ junctions }) {
 
         {/* Top Hotspots (Police Stations) */}
         <div style={{
-          background: 'rgba(20,20,40,0.85)', border: '1px solid rgba(99,102,241,0.3)',
+          background: 'var(--panel-bg)', border: '1px solid var(--border-color)',
           borderRadius: '12px', padding: '1rem', flex: 1
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
-            <Activity size={16} color="#6366f1" />
-            <span style={{ fontWeight: '700', color: '#a5b4fc', fontSize: '13px' }}>STATION RISK RANKING</span>
+            <Activity size={16} color="var(--primary)" />
+            <span style={{ fontWeight: '700', color: 'var(--primary)', fontSize: '13px' }}>STATION RISK RANKING</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '280px', overflowY: 'auto' }}>
             {hotspots.slice(0, 12).map((h, i) => {
@@ -222,12 +223,12 @@ export default function LiveMap({ junctions }) {
               const barColor = rs >= 70 ? '#ef4444' : rs >= 45 ? '#f97316' : '#6366f1';
               return (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '10px', color: '#64748b', width: '16px', textAlign: 'right' }}>{i + 1}</span>
+                  <span style={{ fontSize: '10px', color: 'var(--text-secondary)', width: '16px', textAlign: 'right' }}>{i + 1}</span>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '11px', color: '#e2e8f0', fontWeight: '600', marginBottom: '2px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-primary)', fontWeight: '600', marginBottom: '2px' }}>
                       {h.police_station_clean}
                     </div>
-                    <div style={{ height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px' }}>
+                    <div style={{ height: '4px', background: 'var(--border-color)', borderRadius: '2px' }}>
                       <div style={{ height: '4px', borderRadius: '2px', width: `${rs}%`, background: barColor, transition: 'width 0.5s ease' }} />
                     </div>
                   </div>

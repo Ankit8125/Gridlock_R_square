@@ -469,17 +469,17 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
                 const scoreColor = score >= 70 ? '#ef4444' : score >= 40 ? '#f97316' : '#6366f1';
                 return (
                   <tr key={i}>
-                    <td style={{ color: '#64748b', fontWeight: '700' }}>#{i + 1}</td>
-                    <td style={{ fontFamily: 'monospace', fontSize: '11px', color: '#94a3b8' }}>
+                    <td style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>#{i + 1}</td>
+                    <td style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-secondary)' }}>
                       {Number(v.lat).toFixed(4)}, {Number(v.lon).toFixed(4)}
                     </td>
-                    <td style={{ fontWeight: '700', color: '#e2e8f0' }}>{v.incident_count}</td>
-                    <td style={{ textTransform: 'capitalize', color: '#a5b4fc' }}>{String(v.top_cause).replace(/_/g, ' ')}</td>
+                    <td style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{v.incident_count}</td>
+                    <td style={{ textTransform: 'capitalize', color: 'var(--primary)', fontWeight: '600' }}>{String(v.top_cause).replace(/_/g, ' ')}</td>
                     <td>{v.avg_duration ? formatMinutes(v.avg_duration) : '—'}</td>
                     <td>{Number(v.road_closure_rate).toFixed(1)}%</td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <div style={{ flex: 1, height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px' }}>
+                        <div style={{ flex: 1, height: '4px', background: 'var(--border-color)', borderRadius: '2px' }}>
                           <div style={{ height: '4px', borderRadius: '2px', width: `${score}%`, background: scoreColor }} />
                         </div>
                         <span style={{ fontSize: '10px', color: scoreColor, fontWeight: '700', width: '28px' }}>{score}</span>

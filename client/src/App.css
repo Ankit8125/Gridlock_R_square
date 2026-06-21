@@ -370,12 +370,14 @@ body {
   position: absolute;
   bottom: 10px;
   left: 10px;
-  background: rgba(15, 23, 42, 0.85);
+  background: var(--panel-bg);
+  color: var(--text-primary);
   padding: 0.5rem 1rem;
   border-radius: 6px;
   font-size: 0.8rem;
   z-index: 1000;
   border: 1px solid var(--border-color);
+  backdrop-filter: blur(8px);
 }
 
 /* Resource Panels */
