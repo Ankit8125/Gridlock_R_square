@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Chart } from 'chart.js/auto';
-import { PlusCircle, RefreshCw } from 'lucide-react';
+import { PlusCircle, RefreshCw, MessageSquare } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 
   (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
@@ -297,6 +297,7 @@ export default function FeedbackLog() {
                   <thead>
                     <tr>
                       <th>Event ID</th>
+                      <th>Station</th>
                       <th>Duration (P/A)</th>
                       <th>Manpower (R/A)</th>
                       <th>Barricades (R/A)</th>
@@ -306,6 +307,19 @@ export default function FeedbackLog() {
                     {logs.map((log, i) => (
                       <tr key={i}>
                         <td style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>{log.event_id}</td>
+                        <td style={{ textTransform: 'capitalize' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {log.police_station || '—'}
+                            {log.notes && (
+                              <span
+                                title={log.notes}
+                                style={{ cursor: 'help', display: 'inline-flex', color: 'var(--primary)', flexShrink: 0 }}
+                              >
+                                <MessageSquare size={13} />
+                              </span>
+                            )}
+                          </span>
+                        </td>
                         <td>{formatMinutes(log.duration?.predicted)} / {formatMinutes(log.duration?.actual)}</td>
                         <td>{log.manpower?.recommended} / {log.manpower?.actual}</td>
                         <td>{log.barricades?.recommended} / {log.barricades?.actual}</td>

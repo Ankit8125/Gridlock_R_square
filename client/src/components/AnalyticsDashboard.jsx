@@ -27,6 +27,13 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [diagnostics, setDiagnostics] = useState(null);
 
+  // Toast notification state
+  const [toast, setToast] = useState({ show: false, message: '', type: 'warn' });
+  const showToast = (message, type = 'warn') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'warn' }), 3500);
+  };
+
   const formatMinutes = (mins) => {
     if (!mins) return "N/A";
     if (mins < 60) return `${Math.round(mins)} min`;
@@ -70,7 +77,10 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
 
   const handleCSVUpload = async (e) => {
     e.preventDefault();
-    if (!csvFile) return;
+    if (!csvFile) {
+      showToast('Please select a CSV file before uploading.', 'warn');
+      return;
+    }
     setUploading(true);
     setUploadMsg("Uploading CSV file to server...");
     setUploadSuccess(false);
@@ -260,6 +270,7 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
   if (!analytics) return <p>Loading analytics data...</p>;
 
   return (
+    <>
     <div>
       {/* KPIs */}
       <div className="kpis-container">
@@ -333,7 +344,7 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
               </div>
             )}
 
-            <button type="submit" className="btn-primary" disabled={uploading || !csvFile} style={{ fontSize: '0.9rem', padding: '10px 16px' }}>
+            <button type="submit" className="btn-primary" disabled={uploading} style={{ fontSize: '0.9rem', padding: '10px 16px' }}>
               {uploading ? (
                 <>
                   <RefreshCw className="animate-spin" size={14} style={{ animation: 'spin 1.5s linear infinite' }} />
@@ -387,14 +398,18 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
 
       {/* Monthly Seasonal Trend */}
       <div className="panel">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h2 className="panel-title">Monthly Incident Trend — Seasonal Analysis</h2>
-          <div style={{ display: 'flex', gap: '12px', fontSize: '11px' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '8px' }}>
+          <h2 className="panel-title" style={{ margin: 0 }}>Monthly Incident Trend — Seasonal Analysis</h2>
+          <div style={{ display: 'flex', gap: '14px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: 10, height: 10, background: 'rgba(99,102,241,0.7)', borderRadius: '2px', display: 'inline-block' }} />
+              Standard
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               <span style={{ width: 10, height: 10, background: 'rgba(59,130,246,0.7)', borderRadius: '2px', display: 'inline-block' }} />
               Monsoon (Jun–Sep)
             </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               <span style={{ width: 10, height: 10, background: 'rgba(245,158,11,0.7)', borderRadius: '2px', display: 'inline-block' }} />
               Festival (Oct–Nov)
             </span>
@@ -562,5 +577,34 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
         </div>
       </div>
     </div>
+
+    {/* Toast Notification */}
+    {toast.show && (
+      <div style={{
+        position: 'fixed',
+        bottom: '28px',
+        right: '28px',
+        zIndex: 9999,
+        padding: '14px 20px',
+        borderRadius: '12px',
+        background: toast.type === 'warn'
+          ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+          : 'linear-gradient(135deg, #ef4444, #dc2626)',
+        color: 'white',
+        fontWeight: '600',
+        fontSize: '0.875rem',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        animation: 'slideInRight 0.35s cubic-bezier(0.16,1,0.3,1)',
+        maxWidth: '340px',
+        lineHeight: '1.4',
+      }}>
+        <AlertTriangle size={17} style={{ flexShrink: 0 }} />
+        {toast.message}
+      </div>
+    )}
+    </>
   );
 }
