@@ -442,6 +442,7 @@ class EventPredictor:
             feedback_df = pd.read_csv(feedback_csv)
             if feedback_df.empty:
                 return
+            feedback_df = feedback_df.drop_duplicates(subset=['event_id'], keep='last')
                 
             merged = feedback_df.merge(self.df, left_on='event_id', right_on='id', how='inner')
             if merged.empty:
