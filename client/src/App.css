@@ -10,6 +10,63 @@
   --warning: #f59e0b;
   --danger: #ef4444;
   --glow-shadow: 0 0 15px rgba(59, 130, 246, 0.15);
+  
+  --header-bg: rgba(15, 23, 42, 0.8);
+  --nav-bg: rgba(30, 41, 59, 0.4);
+  --kpi-bg: rgba(30, 41, 59, 0.35);
+  --form-control-bg: rgba(15, 23, 42, 0.6);
+  --table-header-bg: rgba(15, 23, 42, 0.4);
+  --table-row-hover: rgba(255, 255, 255, 0.02);
+  --card-bg: rgba(30, 41, 59, 0.3);
+  --terminal-bg: #070a13;
+  --terminal-border: #1e293b;
+  --console-bg: #05070c;
+  --console-text: #a7f3d0;
+}
+
+body.light-mode {
+  --bg-color: #f8fafc;
+  --panel-bg: rgba(255, 255, 255, 0.95);
+  --border-color: rgba(15, 23, 42, 0.08);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --glow-shadow: 0 0 15px rgba(37, 99, 235, 0.08);
+  
+  --header-bg: rgba(255, 255, 255, 0.9);
+  --nav-bg: rgba(241, 245, 249, 0.9);
+  --kpi-bg: rgba(255, 255, 255, 0.95);
+  --form-control-bg: rgba(255, 255, 255, 0.95);
+  --table-header-bg: rgba(241, 245, 249, 0.9);
+  --table-row-hover: rgba(15, 23, 42, 0.02);
+  --card-bg: rgba(241, 245, 249, 0.95);
+  --terminal-bg: #f1f5f9;
+  --terminal-border: #cbd5e1;
+  --console-bg: #f8fafc;
+  --console-text: #065f46;
+}
+
+body.light-mode .brand-title h1 {
+  background: linear-gradient(to right, #0f172a, #475569) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  background: var(--panel-bg) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color);
+}
+
+.theme-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+body.light-mode .theme-toggle-btn:hover {
+  background: rgba(15, 23, 42, 0.05) !important;
 }
 
 * {
@@ -39,7 +96,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 2rem;
-  background: rgba(15, 23, 42, 0.8);
+  background: var(--header-bg);
   backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-color);
   position: sticky;
@@ -80,7 +137,7 @@ body {
 .nav-tabs {
   display: flex;
   gap: 0.5rem;
-  background: rgba(30, 41, 59, 0.4);
+  background: var(--nav-bg);
   padding: 0.35rem;
   border-radius: 8px;
   border: 1px solid var(--border-color);
@@ -162,7 +219,7 @@ body {
 }
 
 .kpi-card {
-  background: rgba(30, 41, 59, 0.35);
+  background: var(--kpi-bg);
   border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 1.25rem;
@@ -216,7 +273,7 @@ body {
 .form-control, select, textarea {
   width: 100%;
   padding: 0.75rem 1rem;
-  background: rgba(15, 23, 42, 0.6);
+  background: var(--form-control-bg);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   color: var(--text-primary);
@@ -313,12 +370,14 @@ body {
   position: absolute;
   bottom: 10px;
   left: 10px;
-  background: rgba(15, 23, 42, 0.85);
+  background: var(--panel-bg);
+  color: var(--text-primary);
   padding: 0.5rem 1rem;
   border-radius: 6px;
   font-size: 0.8rem;
   z-index: 1000;
   border: 1px solid var(--border-color);
+  backdrop-filter: blur(8px);
 }
 
 /* Resource Panels */
@@ -369,7 +428,7 @@ body {
 }
 
 .result-card {
-  background: rgba(30, 41, 59, 0.3);
+  background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 1rem;
@@ -385,7 +444,7 @@ body {
 .prediction-val {
   font-size: 2rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .prediction-unit {
@@ -398,7 +457,7 @@ body {
   overflow-x: auto;
   border-radius: 8px;
   border: 1px solid var(--border-color);
-  background: rgba(15, 23, 42, 0.2);
+  background: var(--nav-bg);
 }
 
 table {
@@ -409,7 +468,7 @@ table {
 }
 
 th {
-  background: rgba(15, 23, 42, 0.6);
+  background: var(--table-header-bg);
   padding: 0.75rem 1rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -424,7 +483,7 @@ td {
 
 tr:hover td {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--table-row-hover);
 }
 
 /* Details popups */
@@ -445,7 +504,7 @@ tr:hover td {
 .panel-title {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 /* Translation box */

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { Info, Users, AlertTriangle, Zap, Download, TrendingDown, CloudRain, Compass } from 'lucide-react';
+import { Info, Users, AlertTriangle, Zap, Download, TrendingDown, CloudRain, Compass, RefreshCw } from 'lucide-react';
 
 const API_BASE = "http://127.0.0.1:8000/api";
 
@@ -471,7 +471,7 @@ export default function ForecastPlanner() {
               disabled={isPredicting}
               style={{ width: '16px', height: '16px', cursor: 'pointer' }}
             />
-            <label htmlFor="demoMode" style={{ fontSize: '12px', color: '#c7d2fe', cursor: 'pointer', fontWeight: '500' }}>
+            <label htmlFor="demoMode" style={{ fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: '500' }}>
               Demo Mode (Offline / Mock Gemini responses to bypass API rate limits)
             </label>
           </div>
@@ -499,7 +499,15 @@ export default function ForecastPlanner() {
           </div>
         </div>
 
-        {prediction ? (
+        {isPredicting ? (
+          <div className="panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '350px', textAlign: 'center', gap: '1rem' }}>
+            <RefreshCw className="animate-spin" size={40} color="var(--primary)" style={{ animation: 'spin 1.5s linear infinite' }} />
+            <h3 style={{ color: 'var(--text-primary)', fontWeight: '700' }}>Analyzing Event Impact...</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '300px' }}>
+              Querying local meteorological records, executing model pipelines, mapping junctions, and constructing detour routing.
+            </p>
+          </div>
+        ) : prediction ? (
           <div className="panel">
             <div className="panel-header">
               <h2 className="panel-title">Forecaster Response</h2>
@@ -662,8 +670,8 @@ export default function ForecastPlanner() {
                     border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px'
                   }}>
                     <div>
-                      <div style={{ fontSize: '12px', fontWeight: '700', color: '#e2e8f0' }}>{alloc.station}</div>
-                      <div style={{ fontSize: '10px', color: '#64748b' }}>{(alloc.distance_meters / 1000).toFixed(1)} km away</div>
+                      <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)' }}>{alloc.station}</div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{(alloc.distance_meters / 1000).toFixed(1)} km away</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: '20px', fontWeight: '800', color: '#10b981' }}>{alloc.officers}</div>
@@ -710,19 +718,19 @@ export default function ForecastPlanner() {
 
             {/* Tactical Diversion Plan */}
             {prediction.diversion_plan && (
-              <div className="result-card" style={{ marginBottom: '1rem', border: '1px solid rgba(99,102,241,0.3)' }}>
+              <div className="result-card" style={{ marginBottom: '1rem', border: '1px solid var(--border-color)' }}>
                 <div className="panel-title" style={{ fontSize: '0.9rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Compass size={14} color="#6366f1" />
+                  <Compass size={14} color="var(--primary)" />
                   Tactical Diversion Instructions
                 </div>
-                <p style={{ fontSize: '12px', color: '#e2e8f0', marginBottom: '8px', fontWeight: '600' }}>
+                <p style={{ fontSize: '12px', color: 'var(--text-primary)', marginBottom: '8px', fontWeight: '600' }}>
                   {prediction.diversion_plan.summary || "No summary provided."}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {Array.isArray(prediction.diversion_plan.steps) && prediction.diversion_plan.steps.map((step, i) => (
                     <div key={i} style={{
-                      fontSize: '11px', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.02)',
-                      padding: '6px 10px', borderRadius: '6px', borderLeft: '3px solid #6366f1'
+                      fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--nav-bg)',
+                      padding: '6px 10px', borderRadius: '6px', borderLeft: '3px solid var(--primary)'
                     }}>
                       {typeof step === 'object' && step !== null 
                         ? `${step.junction ? `[${step.junction}] ` : ''}${step.instruction || step.step || JSON.stringify(step)}` 
@@ -828,6 +836,12 @@ export default function ForecastPlanner() {
                   {isSimulating ? 'Simulating...' : 'Simulate'}
                 </button>
               </div>
+              {isSimulating && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', fontSize: '11px', color: 'var(--primary)' }}>
+                  <RefreshCw className="animate-spin" size={12} style={{ animation: 'spin 1.5s linear infinite' }} />
+                  <span>Recalculating impact with simulation inputs...</span>
+                </div>
+              )}
               {whatIfResult && (
                 <div style={{
                   background: whatIfResult.duration_change_minutes < -15 ? 'rgba(16,185,129,0.08)' : 'rgba(99,102,241,0.08)',
@@ -836,17 +850,17 @@ export default function ForecastPlanner() {
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <div>
-                      <div style={{ fontSize: '10px', color: '#94a3b8' }}>New Duration</div>
-                      <div style={{ fontSize: '18px', fontWeight: '800', color: '#e2e8f0' }}>{formatMinutes(whatIfResult.modified_duration_minutes)}</div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>New Duration</div>
+                      <div style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)' }}>{formatMinutes(whatIfResult.modified_duration_minutes)}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '10px', color: '#94a3b8' }}>Duration Change</div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Duration Change</div>
                       <div style={{ fontSize: '16px', fontWeight: '700', color: whatIfResult.duration_change_minutes < 0 ? '#10b981' : '#ef4444' }}>
                         {whatIfResult.duration_change_pct > 0 ? '+' : ''}{whatIfResult.duration_change_pct}%
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '10px', color: '#94a3b8' }}>New Cascade Risk</div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>New Cascade Risk</div>
                       <div style={{ fontSize: '16px', fontWeight: '700', color: '#f59e0b' }}>
                         {Math.round(whatIfResult.modified_cascade_probability * 100)}%
                       </div>

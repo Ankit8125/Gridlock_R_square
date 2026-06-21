@@ -2,6 +2,7 @@ import os
 import json
 import pandas as pd
 import numpy as np
+from backend.path_config import get_path
 
 def clean_and_preprocess_data(csv_path):
     print("Starting data preprocessing...")
@@ -101,11 +102,8 @@ def clean_and_preprocess_data(csv_path):
     )
 
     # Save cleaned data to CSV
-    BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
-    output_dir = os.path.join(BACKEND_DIR, "artifacts")
-    os.makedirs(output_dir, exist_ok=True)
-    
-    cleaned_csv_path = os.path.join(output_dir, "cleaned_events.csv")
+    cleaned_csv_path = get_path("backend/artifacts/cleaned_events.csv")
+    os.makedirs(os.path.dirname(cleaned_csv_path), exist_ok=True)
     df.to_csv(cleaned_csv_path, index=False)
     print(f"Cleaned dataset saved to: {cleaned_csv_path}")
 
@@ -125,7 +123,7 @@ def clean_and_preprocess_data(csv_path):
         "timezone_verified": True
     }
 
-    profile_json_path = os.path.join(output_dir, "dataset_profile.json")
+    profile_json_path = get_path("backend/artifacts/dataset_profile.json")
     with open(profile_json_path, 'w', encoding='utf-8') as f:
         json.dump(profile, f, indent=2, ensure_ascii=False)
     print(f"Dataset profile saved to: {profile_json_path}")
@@ -133,7 +131,5 @@ def clean_and_preprocess_data(csv_path):
     return df, profile
 
 if __name__ == "__main__":
-    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-    PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
-    csv_path = os.path.join(PROJECT_ROOT, "dataset", "Astram event data_anonymized.csv")
+    csv_path = get_path("dataset/Astram event data_anonymized.csv")
     clean_and_preprocess_data(csv_path)

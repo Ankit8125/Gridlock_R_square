@@ -193,5 +193,48 @@ class TestBackendAPI(unittest.TestCase):
             self.assertEqual(data["parsed_parameters"]["corridor"], "Bellary Road 1")
             self.assertTrue(data["parsed_parameters"]["requires_road_closure"])
 
+    def test_12_upload_csv(self):
+        print("Testing /api/upload-csv...")
+        boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW'
+        filename = 'test_upload.csv'
+        file_content = "event_cause,event_type,latitude,longitude,requires_road_closure,corridor,police_station\naccident,unplanned,12.9716,77.5946,False,Non-corridor,yelahanka\nwater_logging,unplanned,12.9218,77.6451,True,ORR East 1,yelahanka\n"
+        
+        body = []
+        body.append(f'--{boundary}')
+        body.append(f'Content-Disposition: form-data; name="file"; filename="{filename}"')
+        body.append('Content-Type: text/csv')
+        body.append('')
+        body.append(file_content)
+        body.append(f'--{boundary}--')
+        body.append('')
+        
+        body_bytes = '\r\n'.join(body).encode('utf-8')
+        
+        headers = {
+            'Content-Type': f'multipart/form-data; boundary={boundary}',
+            'Content-Length': str(len(body_bytes))
+        }
+        
+        req = urllib.request.Request(
+            f"{BASE_URL}/upload-csv",
+            data=body_bytes,
+            headers=headers
+        )
+        with urllib.request.urlopen(req) as response:
+            self.assertEqual(response.status, 200)
+            data = json.loads(response.read().decode('utf-8'))
+            self.assertEqual(data["status"], "success")
+            self.assertIn("uploaded_records_count", data)
+            self.assertIn("total_records_count", data)
+            self.assertEqual(data["uploaded_records_count"], 2)
+
+    def test_13_model_diagnostic(self):
+        print("Testing /api/model-diagnostic...")
+        req = urllib.request.Request(f"{BASE_URL}/model-diagnostic")
+        with urllib.request.urlopen(req) as response:
+            self.assertEqual(response.status, 200)
+            data = json.loads(response.read().decode('utf-8'))
+            self.assertTrue(isinstance(data, dict))
+
 if __name__ == "__main__":
     unittest.main()

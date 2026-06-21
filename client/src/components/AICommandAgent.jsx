@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Terminal, Shield, Sparkles, Send, Copy, Check, MapPin, CloudRain, Users, AlertOctagon, RefreshCw } from 'lucide-react';
+import { Terminal, Shield, Sparkles, Send, Copy, Check, MapPin, CloudRain, Users, AlertOctagon, RefreshCw, Trash2, Clock } from 'lucide-react';
 
 const API_BASE = "http://127.0.0.1:8000/api";
 
@@ -30,13 +30,23 @@ export default function AICommandAgent() {
   const [copied, setCopied] = useState(false);
   const [demoMode, setDemoMode] = useState(true);
 
+  // Saved Chats State
+  const [chatHistory, setChatHistory] = useState(() => {
+    try {
+      const stored = localStorage.getItem("astram_ai_chat_history");
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
   const runProgressSimulation = async () => {
     const logs = demoMode ? [
       "🔍 [Demo Mode] Initializing ASTRAM offline Pipeline...",
-      "🧠 [Demo Mode] Mapped mock NLP incident entities...",
-      "🌐 [Demo Mode] Mapped mock coordinates & corridor names...",
+      "🧠 [Demo Mode] Mapped NLP incident entities...",
+      "🌐 [Demo Mode] Mapped coordinates & corridor names...",
       "🌤️ Querying real-time weather from Open-Meteo service...",
-      "⚡ Injecting weather modifiers and running Random Forest / Gradient Boosting clearance predictor...",
+      "⚡ Running Random Forest / Gradient Boosting clearance predictor...",
       "🚓 Calculating inverse-distance station police allocations...",
       "🚧 Mapping nearest tactical spillover junctions...",
       "📋 Compiling mock tactical diversion instructions...",
@@ -46,7 +56,7 @@ export default function AICommandAgent() {
       "🧠 Performing Natural Language parsing and entity extraction...",
       "🌐 Geolocating incident coordinates & corridor mappings...",
       "🌤️ Querying real-time weather from Open-Meteo service...",
-      "⚡ Injecting weather modifiers and running Random Forest / Gradient Boosting clearance predictor...",
+      "⚡ Running Random Forest / Gradient Boosting clearance predictor...",
       "🚓 Calculating inverse-distance station police allocations...",
       "🚧 Mapping nearest tactical spillover junctions...",
       "📋 Compiling step-by-step diversion instructions...",
@@ -55,7 +65,7 @@ export default function AICommandAgent() {
 
     setProgressLog([]);
     for (let i = 0; i < logs.length; i++) {
-      await new Promise(r => setTimeout(r, 220));
+      await new Promise(r => setTimeout(r, 180));
       setProgressLog(prev => [...prev, logs[i]]);
     }
   };
@@ -80,12 +90,39 @@ export default function AICommandAgent() {
       if (!res.ok) throw new Error("Failed to process command agent request");
       const data = await res.json();
       setResult(data);
+
+      // Save to chat history
+      const newHistoryItem = {
+        id: Date.now(),
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        date: new Date().toLocaleDateString([], { month: 'short', day: 'numeric' }),
+        reportText: reportText,
+        result: data
+      };
+      
+      setChatHistory(prev => {
+        const updated = [newHistoryItem, ...prev].slice(0, 15); // Keep last 15 briefs
+        localStorage.setItem("astram_ai_chat_history", JSON.stringify(updated));
+        return updated;
+      });
+
     } catch (err) {
       console.error(err);
       setProgressLog(prev => [...prev, "❌ Error processing request. Check backend logs."]);
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleClearHistory = () => {
+    localStorage.removeItem("astram_ai_chat_history");
+    setChatHistory([]);
+  };
+
+  const loadHistoryItem = (item) => {
+    setReportText(item.reportText);
+    setResult(item.result);
+    setProgressLog(["📋 Restored briefing from history.", `Time: ${item.date} ${item.timestamp}`]);
   };
 
   const handleCopyBriefing = () => {
@@ -103,7 +140,7 @@ export default function AICommandAgent() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div className="panel" style={{ marginBottom: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
-          <Sparkles color="#6366f1" size={24} />
+          <Sparkles color="var(--primary)" size={24} />
           <h2 className="panel-title" style={{ fontSize: '1.4rem' }}>AI Tactical Command Agent</h2>
         </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '800px' }}>
@@ -113,10 +150,10 @@ export default function AICommandAgent() {
       </div>
 
       <div className="grid-2">
-        {/* Left Side: Input & Logs */}
+        {/* Left Side: Input, Logs, & Chat History */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div className="panel" style={{ height: 'fit-content' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '1rem', color: '#a5b4fc' }}>Ingest Unstructured Log</h3>
+          <div className="panel" style={{ height: 'fit-content', marginBottom: 0 }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '1rem', color: 'var(--primary)' }}>Ingest Unstructured Log</h3>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <textarea
@@ -126,7 +163,7 @@ export default function AICommandAgent() {
                   value={reportText}
                   onChange={(e) => setReportText(e.target.value)}
                   disabled={isProcessing}
-                  style={{ resize: 'none', fontSize: '0.95rem', background: 'rgba(10,12,22,0.7)' }}
+                  style={{ resize: 'none', fontSize: '0.95rem' }}
                 />
               </div>
 
@@ -142,12 +179,10 @@ export default function AICommandAgent() {
                       onClick={() => setReportText(preset.text)}
                       disabled={isProcessing}
                       style={{
-                        padding: '6px 12px', borderRadius: '6px', border: '1px solid rgba(99,102,241,0.2)',
-                        background: 'rgba(30,41,59,0.3)', color: '#e2e8f0', fontSize: '11px',
+                        padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border-color)',
+                        background: 'var(--nav-bg)', color: 'var(--text-primary)', fontSize: '11px',
                         cursor: 'pointer', transition: 'all 0.2s'
                       }}
-                      onMouseOver={e => e.target.style.borderColor = '#6366f1'}
-                      onMouseOut={e => e.target.style.borderColor = 'rgba(99,102,241,0.2)'}
                     >
                       {preset.label}
                     </button>
@@ -164,7 +199,7 @@ export default function AICommandAgent() {
                   disabled={isProcessing}
                   style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                 />
-                <label htmlFor="demoMode" style={{ fontSize: '12px', color: '#c7d2fe', cursor: 'pointer', fontWeight: '500' }}>
+                <label htmlFor="demoMode" style={{ fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: '500' }}>
                   Demo Mode (Offline / Mock Gemini responses to bypass API rate limits)
                 </label>
               </div>
@@ -186,36 +221,107 @@ export default function AICommandAgent() {
 
           {/* Terminal Console */}
           {(isProcessing || progressLog.length > 0) && (
-            <div className="panel" style={{ background: '#070a13', borderColor: '#1e293b', padding: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.75rem', borderBottom: '1px solid #1e293b', paddingBottom: '0.5rem' }}>
+            <div className="panel" style={{ background: 'var(--terminal-bg)', borderColor: 'var(--terminal-border)', padding: '1rem', marginBottom: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.75rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
                 <Terminal size={14} color="#10b981" />
                 <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#10b981', fontWeight: '700', letterSpacing: '0.5px' }}>
                   AGENT CONSOLE WORKSPACE
                 </span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '180px', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '140px', overflowY: 'auto' }}>
                 {progressLog.map((log, idx) => (
-                  <div key={idx} style={{ fontFamily: 'monospace', fontSize: '11px', color: '#94a3b8' }}>
+                  <div key={idx} style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-secondary)' }}>
                     {log}
                   </div>
                 ))}
               </div>
             </div>
           )}
+
+          {/* Saved Conversations Sidebar list */}
+          <div className="panel" style={{ marginBottom: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Clock size={15} color="var(--primary)" />
+                AI Analysis History
+              </h3>
+              {chatHistory.length > 0 && (
+                <button 
+                  onClick={handleClearHistory} 
+                  style={{
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '4px',
+                    fontSize: '11px', fontWeight: '600'
+                  }}
+                >
+                  <Trash2 size={12} /> Clear
+                </button>
+              )}
+            </div>
+
+            {chatHistory.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
+                {chatHistory.map((item) => (
+                  <div 
+                    key={item.id} 
+                    onClick={() => loadHistoryItem(item)}
+                    style={{
+                      background: 'var(--nav-bg)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '6px',
+                      padding: '8px 10px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                    onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: '700', color: 'var(--primary)' }}>
+                        {formatCause(item.result.parsed_parameters?.cause)}
+                      </span>
+                      <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
+                        {item.date} {item.timestamp}
+                      </span>
+                    </div>
+                    <div style={{ color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {item.reportText}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', textAlign: 'center', padding: '10px 0' }}>
+                No past briefs saved.
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Right Side: Results */}
         <div>
-          {result ? (
+          {isProcessing ? (
+            <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', background: 'var(--panel-bg)', borderColor: 'var(--primary)', padding: '1.5rem', minHeight: '400px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '0.5rem' }}>
+                <RefreshCw className="animate-spin" size={18} color="var(--primary)" style={{ animation: 'spin 1.5s linear infinite' }} />
+                <span style={{ fontSize: '12px', fontWeight: '800', color: 'var(--primary)' }}>ASTRAM AGENT PROCESSING INTEL...</span>
+              </div>
+              <div style={{ height: '40px', background: 'var(--nav-bg)', borderRadius: '6px', opacity: 0.5, animation: 'pulse 1.5s infinite' }} />
+              <div style={{ height: '80px', background: 'var(--nav-bg)', borderRadius: '6px', opacity: 0.5, animation: 'pulse 1.5s infinite' }} />
+              <div style={{ height: '120px', background: 'var(--nav-bg)', borderRadius: '6px', opacity: 0.5, animation: 'pulse 1.5s infinite' }} />
+              <div style={{ height: '60px', background: 'var(--nav-bg)', borderRadius: '6px', opacity: 0.5, animation: 'pulse 1.5s infinite' }} />
+            </div>
+          ) : result ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               {/* Target & Weather Info Row */}
-              <div className="panel" style={{ padding: '1.25rem' }}>
+              <div className="panel" style={{ padding: '1.25rem', marginBottom: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
                     <span className="badge badge-high" style={{ marginBottom: '6px' }}>
                       {formatCause(result.parsed_parameters.cause)}
                     </span>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#fff' }}>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-primary)' }}>
                       {result.parsed_parameters.corridor} Corridor
                     </h3>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
@@ -228,14 +334,14 @@ export default function AICommandAgent() {
 
                   {result.prediction.weather && (
                     <div style={{
-                      background: result.prediction.weather.is_raining ? 'rgba(59,130,246,0.1)' : 'rgba(255,255,255,0.03)',
+                      background: result.prediction.weather.is_raining ? 'rgba(59,130,246,0.1)' : 'var(--nav-bg)',
                       border: `1px solid ${result.prediction.weather.is_raining ? 'rgba(59,130,246,0.3)' : 'var(--border-color)'}`,
                       borderRadius: '8px', padding: '8px 12px', minWidth: '120px', display: 'flex', alignItems: 'center', gap: '8px'
                     }}>
-                      <CloudRain color={result.prediction.weather.is_raining ? '#3b82f6' : '#94a3b8'} size={24} />
+                      <CloudRain color={result.prediction.weather.is_raining ? '#3b82f6' : 'var(--text-secondary)'} size={24} />
                       <div>
                         <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Live Weather</div>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#fff' }}>{result.prediction.weather.description}</div>
+                        <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)' }}>{result.prediction.weather.description}</div>
                         <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{result.prediction.weather.temperature}°C</div>
                       </div>
                     </div>
@@ -244,8 +350,8 @@ export default function AICommandAgent() {
               </div>
 
               {/* Resource Requirements & Dispatch Order */}
-              <div className="panel" style={{ padding: '1.25rem' }}>
-                <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: '#a5b4fc', marginBottom: '0.75rem' }}>Resource Recommendations</h4>
+              <div className="panel" style={{ padding: '1.25rem', marginBottom: 0 }}>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--primary)', marginBottom: '0.75rem' }}>Resource Recommendations</h4>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '1rem' }}>
                   <div style={{
                     background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.2)',
@@ -274,10 +380,10 @@ export default function AICommandAgent() {
                   {result.prediction.resources.station_allocations.map((alloc, idx) => (
                     <div key={idx} style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      background: 'rgba(255,255,255,0.02)', padding: '6px 12px', borderRadius: '6px',
-                      border: '1px solid rgba(255,255,255,0.04)'
+                      background: 'var(--nav-bg)', padding: '6px 12px', borderRadius: '6px',
+                      border: '1px solid var(--border-color)'
                     }}>
-                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#e2e8f0', textTransform: 'capitalize' }}>{alloc.station} Station</span>
+                      <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-primary)', textTransform: 'capitalize' }}>{alloc.station} Station</span>
                       <span style={{ fontSize: '11px', color: '#10b981', fontWeight: '700' }}>{alloc.officers} Officers dispatch</span>
                     </div>
                   ))}
@@ -285,15 +391,15 @@ export default function AICommandAgent() {
               </div>
 
               {/* Diversion Directives */}
-              <div className="panel" style={{ padding: '1.25rem' }}>
-                <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: '#a5b4fc', marginBottom: '0.5rem' }}>Tactical Diversion Plan</h4>
-                <p style={{ fontSize: '12px', color: '#e2e8f0', marginBottom: '0.75rem', fontWeight: '600', lineSpacing: '1.4' }}>
+              <div className="panel" style={{ padding: '1.25rem', marginBottom: 0 }}>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--primary)', marginBottom: '0.5rem' }}>Tactical Diversion Plan</h4>
+                <p style={{ fontSize: '12px', color: 'var(--text-primary)', marginBottom: '0.75rem', fontWeight: '600', lineHeight: '1.4' }}>
                   💡 {result.prediction.diversion_plan?.summary || "No summary provided."}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {Array.isArray(result.prediction.diversion_plan?.steps) && result.prediction.diversion_plan.steps.map((step, idx) => (
                     <div key={idx} style={{
-                      fontSize: '11px', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.02)',
+                      fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--nav-bg)',
                       padding: '6px 10px', borderRadius: '6px', borderLeft: '3px solid #6366f1'
                     }}>
                       {typeof step === 'object' && step !== null 
@@ -305,11 +411,11 @@ export default function AICommandAgent() {
               </div>
 
               {/* Text Dispatch Memo */}
-              <div className="panel" style={{ padding: '1.25rem', borderColor: '#10b981' }}>
+              <div className="panel" style={{ padding: '1.25rem', borderColor: '#10b981', marginBottom: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Shield size={14} color="#10b981" />
-                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#10b981' }}>ASTRAM COMMAND CENTER RADIO LOG</span>
+                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#10b981' }}>ASTRAM COMMAND CENTER BRIEFING LOG</span>
                   </div>
                   <button
                     onClick={handleCopyBriefing}
@@ -328,7 +434,7 @@ export default function AICommandAgent() {
                   className="form-control"
                   style={{
                     fontFamily: 'monospace', fontSize: '11px', resize: 'none',
-                    lineHeight: '1.4', background: '#05070c', color: '#a7f3d0'
+                    lineHeight: '1.4', background: 'var(--console-bg)', color: 'var(--console-text)'
                   }}
                   value={result.dispatch_briefing}
                 />
