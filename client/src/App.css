@@ -524,3 +524,56 @@ tr:hover td {
 .reason-list li + li {
   margin-top: 0.35rem;
 }
+
+/* LiveMap Responsive Styles */
+.livemap-container {
+  display: flex;
+  gap: 1.25rem;
+  height: 100%;
+}
+
+.livemap-sidebar {
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (max-width: 900px) {
+  .livemap-container {
+    flex-direction: column;
+    height: auto;
+  }
+  .livemap-sidebar {
+    width: 100%;
+  }
+  #live-map {
+    min-height: 400px !important;
+  }
+  .app-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem;
+  }
+  .nav-tabs {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+  .tab-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboard-content {
+    padding: 1rem;
+  }
+  .brand-section {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.35rem;
+  }
+}

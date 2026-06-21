@@ -126,7 +126,7 @@ export default function LiveMap({ junctions }) {
   };
 
   return (
-    <div style={{ display: 'flex', gap: '1.25rem', height: '100%' }}>
+    <div className="livemap-container">
       {/* Map */}
       <div style={{ flex: 1, position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(99,102,241,0.3)' }}>
         <div id="live-map" style={{ width: '100%', height: '100%', minHeight: '520px' }} />
@@ -167,7 +167,7 @@ export default function LiveMap({ junctions }) {
       </div>
 
       {/* Sidebar */}
-      <div style={{ width: '300px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div className="livemap-sidebar">
         {/* Surge Alerts */}
         <div style={{
           background: 'rgba(20,20,40,0.85)', border: '1px solid rgba(239,68,68,0.4)',
