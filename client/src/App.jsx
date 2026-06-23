@@ -120,7 +120,7 @@ function App() {
   return (
     <div className="app-container">
       {/* Walkthrough */}
-      <AppTour forceOpen={tourOpen} onClose={() => setTourOpen(false)} />
+      <AppTour forceOpen={tourOpen} onClose={() => setTourOpen(false)} onNavigate={setActiveTab} />
 
       {/* Header Navbar */}
       <header className="app-header">
