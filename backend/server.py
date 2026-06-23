@@ -69,6 +69,14 @@ class FeedbackRequest(BaseModel):
     police_station: str
     notes: str = ""
 
+class SimilarEventsRequest(BaseModel):
+    cause: str
+    corridor: str
+    hour: int
+    day_of_week: int
+    event_type: str = "unplanned"
+    top_k: int = 8
+
 @app.get("/api/health")
 def health_check():
     return {"status": "healthy", "timezone": "Asia/Kolkata"}
@@ -330,11 +338,13 @@ def log_feedback(req: FeedbackRequest, background_tasks: BackgroundTasks):
         file_exists = os.path.exists(FEEDBACK_CSV_PATH)
         os.makedirs(os.path.dirname(FEEDBACK_CSV_PATH), exist_ok=True)
         
+        import datetime as _dt
+        submitted_at = _dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         with open(FEEDBACK_CSV_PATH, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             if not file_exists:
                 # Write header
-                writer.writerow(['event_id', 'actual_duration', 'actual_manpower_total', 'actual_barricades', 'police_station', 'notes'])
+                writer.writerow(['event_id', 'actual_duration', 'actual_manpower_total', 'actual_barricades', 'police_station', 'notes', 'submitted_at'])
             
             writer.writerow([
                 req.event_id,
@@ -342,7 +352,8 @@ def log_feedback(req: FeedbackRequest, background_tasks: BackgroundTasks):
                 req.actual_manpower_total,
                 req.actual_barricades,
                 req.police_station,
-                req.notes
+                req.notes,
+                submitted_at
             ])
             
         # Trigger policy multipliers updates asynchronously (non-blocking)
@@ -443,6 +454,7 @@ def get_feedback_summary():
                     "cause": row['event_cause_clean'],
                     "police_station": row['police_station_clean'],
                     "notes": row['notes'] if pd.notnull(row['notes']) else "",
+                    "submitted_at": str(row['submitted_at']) if 'submitted_at' in row and pd.notnull(row['submitted_at']) else "",
                     "duration": {
                         "predicted": pred_out['predicted_duration_minutes'],
                         "actual": float(row['actual_duration'])
@@ -986,6 +998,174 @@ def get_model_diagnostic():
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error reading model diagnostics: {str(e)}")
     return {"error": "Model diagnostics not found."}
+
+
+# ──────────────────────────────────────────────────────────────
+# Competitor-Inspired New Endpoints (Sprint 2)
+# ──────────────────────────────────────────────────────────────
+
+@app.post("/api/similar-events")
+def get_similar_events(req: SimilarEventsRequest):
+    """Find top-K historically similar incidents using a scoring-based analog search.
+    Inspired by gridlock-oracle/analogs.py and Gridlock-Flipkart-v1/src/similarity.py.
+    Returns real historical outcomes (actual durations, closure status) for explainability."""
+    try:
+        cleaned_csv = get_path("backend/artifacts/cleaned_events.csv")
+        if not os.path.exists(cleaned_csv):
+            return {"similar_events": [], "total_matched": 0}
+
+        df = pd.read_csv(cleaned_csv)
+        # Only use completed/resolved events with valid duration
+        df_complete = df[
+            (df['status'] != 'active') &
+            (df['duration'].notnull()) &
+            (df['duration'] > 0) &
+            (df['duration'] < 1440)  # cap at 24 hours
+        ].copy()
+
+        if df_complete.empty:
+            return {"similar_events": [], "total_matched": 0}
+
+        # Similarity scoring — same approach as analog retrieval but lightweight
+        def similarity_score(row):
+            score = 0.0
+            # Cause match (most important)
+            if str(row.get('event_cause_clean', '')).lower() == req.cause.lower():
+                score += 3.0
+            # Corridor match
+            if str(row.get('corridor_clean', '')).lower() == req.corridor.lower():
+                score += 2.0
+            # Event type match
+            if str(row.get('event_type', '')).lower() == req.event_type.lower():
+                score += 1.0
+            # Hour proximity (within ±2 hours)
+            row_hour = int(row.get('local_hour', 0)) if pd.notnull(row.get('local_hour')) else 0
+            hour_diff = abs(row_hour - req.hour)
+            if hour_diff <= 1:
+                score += 1.5
+            elif hour_diff <= 2:
+                score += 0.75
+            # Day of week match (weekday vs weekend)
+            row_dow = int(row.get('local_day_of_week', 0)) if pd.notnull(row.get('local_day_of_week')) else 0
+            # 0-4 = weekday, 5-6 = weekend
+            if (row_dow < 5) == (req.day_of_week < 5):
+                score += 0.5
+            return score
+
+        df_complete['_sim_score'] = df_complete.apply(similarity_score, axis=1)
+        df_sorted = df_complete.sort_values('_sim_score', ascending=False)
+
+        # Only return events with meaningful similarity
+        df_top = df_sorted[df_sorted['_sim_score'] >= 2.0].head(req.top_k)
+
+        results = []
+        for _, row in df_top.iterrows():
+            results.append({
+                "event_id": str(row.get('id', '')),
+                "cause": str(row.get('event_cause_clean', '')).replace('_', ' ').title(),
+                "corridor": str(row.get('corridor_clean', 'Non-corridor')),
+                "actual_duration_minutes": round(float(row['duration']), 1),
+                "requires_road_closure": bool(row.get('requires_road_closure', False)),
+                "hour": int(row.get('local_hour', 0)) if pd.notnull(row.get('local_hour')) else 0,
+                "day_of_week": int(row.get('local_day_of_week', 0)) if pd.notnull(row.get('local_day_of_week')) else 0,
+                "police_station": str(row.get('police_station_clean', 'Unknown')).replace('_', ' ').title(),
+                "similarity_score": round(float(row['_sim_score']), 1),
+                "priority": str(row.get('priority_clean', 'medium')).title()
+            })
+
+        # Compute aggregate stats
+        durations = [r['actual_duration_minutes'] for r in results]
+        closure_rate = sum(1 for r in results if r['requires_road_closure']) / max(len(results), 1) * 100
+
+        return {
+            "similar_events": results,
+            "total_matched": len(results),
+            "stats": {
+                "median_duration": round(float(np.median(durations)), 1) if durations else None,
+                "p25_duration": round(float(np.percentile(durations, 25)), 1) if durations else None,
+                "p75_duration": round(float(np.percentile(durations, 75)), 1) if durations else None,
+                "closure_rate_pct": round(closure_rate, 1)
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Similar events error: {str(e)}")
+
+
+@app.get("/api/cascade-analysis")
+def get_cascade_analysis():
+    """Detect corridors with historically overlapping (concurrent) incidents.
+    Inspired by gridlock-oracle/cascade.py. When two incidents overlap in time
+    at the same corridor, they compound each other's severity."""
+    try:
+        cleaned_csv = get_path("backend/artifacts/cleaned_events.csv")
+        if not os.path.exists(cleaned_csv):
+            return {"cascade_corridors": [], "total_cascade_pairs": 0}
+
+        df = pd.read_csv(cleaned_csv)
+
+        # Need start and end times
+        if 'start_datetime' not in df.columns:
+            return {"cascade_corridors": [], "total_cascade_pairs": 0}
+
+        df['_start'] = pd.to_datetime(df['start_datetime'], errors='coerce', utc=True)
+        df = df[df['_start'].notna()].copy()
+
+        # Estimate end time from duration; fall back to start + 60min
+        df['_dur'] = pd.to_numeric(df['duration'], errors='coerce').fillna(60.0).clip(upper=1440)
+        df['_end'] = df['_start'] + pd.to_timedelta(df['_dur'], unit='m')
+
+        # Work per corridor (skip non-corridor)
+        INVALID = {'non-corridor', 'noncorridor', 'unknown', 'none', 'nan', '', '-', 'null'}
+        df['_corridor'] = df['corridor_clean'].astype(str).str.strip().str.lower()
+        df_valid = df[~df['_corridor'].isin(INVALID)].copy()
+
+        corridor_results = []
+        for corridor, grp in df_valid.groupby('corridor_clean'):
+            if len(grp) < 2:
+                continue
+            g = grp.sort_values('_start')
+            starts = g['_start'].values
+            ends = g['_end'].values
+            closures = g['requires_road_closure'].astype(str).str.lower().isin(['true', '1', 'yes']).values
+            n = len(g)
+            pairs = []
+            for a in range(n):
+                for b in range(a + 1, n):
+                    if starts[b] >= ends[a]:
+                        break  # sorted — no further overlap possible
+                    ov_start = max(starts[a], starts[b])
+                    ov_end = min(ends[a], ends[b])
+                    ov_min = (ov_end - ov_start) / np.timedelta64(1, 'm')
+                    if ov_min <= 0:
+                        continue
+                    both_closure = int(closures[a]) + int(closures[b])
+                    # Cascade risk: 2 + 3*(overlap/120 capped) + 2.5*closure_factor
+                    risk = min(2.0 + 3.0 * min(ov_min / 120.0, 1.0) + 2.5 * both_closure, 10.0)
+                    pairs.append({'overlap_min': round(float(ov_min), 1), 'risk': round(risk, 1)})
+
+            if pairs:
+                avg_risk = round(float(np.mean([p['risk'] for p in pairs])), 1)
+                max_risk = round(float(max(p['risk'] for p in pairs)), 1)
+                avg_overlap = round(float(np.mean([p['overlap_min'] for p in pairs])), 1)
+                corridor_results.append({
+                    "corridor": str(corridor),
+                    "cascade_pairs": len(pairs),
+                    "avg_cascade_risk": avg_risk,
+                    "max_cascade_risk": max_risk,
+                    "avg_overlap_minutes": avg_overlap,
+                    "risk_level": "High" if avg_risk >= 7 else "Medium" if avg_risk >= 4 else "Low"
+                })
+
+        corridor_results.sort(key=lambda x: x['cascade_pairs'], reverse=True)
+        total_pairs = sum(c['cascade_pairs'] for c in corridor_results)
+
+        return {
+            "cascade_corridors": corridor_results[:10],
+            "total_cascade_pairs": total_pairs,
+            "corridors_affected": len(corridor_results)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cascade analysis error: {str(e)}")
 
 
 if __name__ == "__main__":

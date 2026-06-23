@@ -1,6 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Chart } from 'chart.js/auto';
-import { PlusCircle, RefreshCw, MessageSquare } from 'lucide-react';
+import { PlusCircle, RefreshCw, MessageSquare, Clock } from 'lucide-react';
+
+const formatRelativeTime = (dtStr) => {
+  if (!dtStr) return '';
+  try {
+    const d = new Date(dtStr.replace(' ', 'T'));
+    const diffMs = Date.now() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 2) return 'just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return `${diffH}h ago`;
+    return `${Math.floor(diffH / 24)}d ago`;
+  } catch { return dtStr; }
+};
 
 const API_BASE = import.meta.env.VITE_API_BASE || 
   (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
@@ -301,6 +315,7 @@ export default function FeedbackLog() {
                       <th>Duration (P/A)</th>
                       <th>Manpower (R/A)</th>
                       <th>Barricades (R/A)</th>
+                      <th>Submitted</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -323,6 +338,14 @@ export default function FeedbackLog() {
                         <td>{formatMinutes(log.duration?.predicted)} / {formatMinutes(log.duration?.actual)}</td>
                         <td>{log.manpower?.recommended} / {log.manpower?.actual}</td>
                         <td>{log.barricades?.recommended} / {log.barricades?.actual}</td>
+                        <td style={{ color: 'var(--text-secondary)', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                          {log.submitted_at ? (
+                            <span title={log.submitted_at} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <Clock size={10} />
+                              {formatRelativeTime(log.submitted_at)}
+                            </span>
+                          ) : '—'}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

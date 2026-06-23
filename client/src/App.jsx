@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Bot, Compass, Map, BarChart2, BookOpen, Sun, Moon, RefreshCw, AlertOctagon, HelpCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { LayoutDashboard, Bot, Compass, Map, BarChart2, BookOpen, Sun, Moon, RefreshCw, AlertOctagon, HelpCircle, Bell, X } from 'lucide-react';
 import CommandCenter from './components/CommandCenter';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import ForecastPlanner from './components/ForecastPlanner';
@@ -22,6 +22,51 @@ function App() {
   const [isLoadingGlobal, setIsLoadingGlobal] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
   const [tourOpen, setTourOpen] = useState(false);
+
+  // Surge alert notification state
+  const [surgeAlerts, setSurgeAlerts] = useState([]);
+  const [bellOpen, setBellOpen] = useState(false);
+  const [hasNewAlerts, setHasNewAlerts] = useState(false);
+  const bellRef = useRef(null);
+
+  // Close bell dropdown on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (bellRef.current && !bellRef.current.contains(e.target)) {
+        setBellOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Poll surge alerts every 60 seconds globally
+  useEffect(() => {
+    const fetchSurge = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/surge-alerts`);
+        if (res.ok) {
+          const data = await res.json();
+          const alerts = data.surge_alerts || [];
+          if (alerts.length > 0) {
+            setSurgeAlerts(alerts);
+            setHasNewAlerts(true);
+          } else {
+            setSurgeAlerts([]);
+            setHasNewAlerts(false);
+          }
+        }
+      } catch (e) { /* silent fail */ }
+    };
+    fetchSurge();
+    const interval = setInterval(fetchSurge, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleBellClick = () => {
+    setBellOpen(o => !o);
+    setHasNewAlerts(false);
+  };
 
   // Theme State
   const [lightMode, setLightMode] = useState(() => {
@@ -144,6 +189,94 @@ function App() {
               </button>
             ))}
           </nav>
+
+          {/* Notification Bell */}
+          <div ref={bellRef} style={{ position: 'relative' }}>
+            <button
+              onClick={handleBellClick}
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: `1px solid ${hasNewAlerts ? '#ef4444' : 'var(--border-color)'}`,
+                color: hasNewAlerts ? '#ef4444' : 'var(--text-secondary)',
+                padding: '8px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+                transition: 'all 0.2s ease'
+              }}
+              title="Surge Alerts"
+              className="theme-toggle-btn"
+            >
+              <Bell size={16} />
+              {hasNewAlerts && surgeAlerts.length > 0 && (
+                <span style={{
+                  position: 'absolute', top: '-4px', right: '-4px',
+                  background: '#ef4444', color: '#fff',
+                  borderRadius: '50%', width: '16px', height: '16px',
+                  fontSize: '10px', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', fontWeight: '700', lineHeight: 1
+                }}>{surgeAlerts.length}</span>
+              )}
+            </button>
+
+            {/* Dropdown Panel */}
+            {bellOpen && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+                width: '300px', background: 'var(--nav-bg)',
+                border: '1px solid var(--border-color)', borderRadius: '12px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.4)', zIndex: 1000,
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 14px', borderBottom: '1px solid var(--border-color)'
+                }}>
+                  <span style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-primary)' }}>
+                    🚨 Surge Alerts
+                  </span>
+                  <button onClick={() => setBellOpen(false)} style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text-secondary)', padding: '2px'
+                  }}><X size={14} /></button>
+                </div>
+                <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                  {surgeAlerts.length === 0 ? (
+                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '12px' }}>
+                      ✅ No active surge alerts
+                    </div>
+                  ) : surgeAlerts.map((alert, i) => (
+                    <div key={i} style={{
+                      padding: '10px 14px',
+                      borderBottom: i < surgeAlerts.length - 1 ? '1px solid var(--border-color)' : 'none',
+                      display: 'flex', flexDirection: 'column', gap: '3px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', flexShrink: 0, animation: 'pulse 2s infinite' }} />
+                        <span style={{ fontWeight: '600', fontSize: '12px', color: 'var(--text-primary)' }}>
+                          {alert.corridor || alert.zone || 'Unknown Corridor'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', paddingLeft: '14px' }}>
+                        {alert.recent_count !== undefined ? `${alert.recent_count} incidents` : ''}
+                        {alert.spike_pct !== undefined ? ` · ↑${Math.round(alert.spike_pct)}% vs baseline` : ''}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{
+                  padding: '8px 14px', borderTop: '1px solid var(--border-color)',
+                  fontSize: '11px', color: 'var(--text-secondary)', textAlign: 'center'
+                }}>
+                  Auto-refreshes every 60s · <button onClick={() => { setActiveTab('live'); setBellOpen(false); }}
+                    style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '11px', padding: 0, textDecoration: 'underline' }}>View on Map</button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Help / Tour button */}
           <button

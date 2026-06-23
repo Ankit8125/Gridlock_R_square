@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { Info, Users, AlertTriangle, Zap, Download, TrendingDown, CloudRain, Compass, RefreshCw, Activity } from 'lucide-react';
+import { Info, Users, AlertTriangle, Zap, Download, TrendingDown, CloudRain, Compass, RefreshCw, Activity, Search, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 
   (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
@@ -39,6 +39,10 @@ export default function ForecastPlanner() {
   const [whatIfCloseRoad, setWhatIfCloseRoad] = useState(false);
   const [whatIfResult, setWhatIfResult] = useState(null);
   const [isSimulating, setIsSimulating] = useState(false);
+
+  // Similar historical events (analog search)
+  const [similarEvents, setSimilarEvents] = useState(null);
+  const [similarExpanded, setSimilarExpanded] = useState(true);
 
   // Map references
   const plannerMapRef = useRef(null);
@@ -186,6 +190,7 @@ export default function ForecastPlanner() {
     e.preventDefault();
     setIsPredicting(true);
     setPrediction(null);
+    setSimilarEvents(null);
     try {
       const res = await fetch(`${API_BASE}/predict?testing=${demoMode}`, {
         method: 'POST',
@@ -204,6 +209,27 @@ export default function ForecastPlanner() {
       if (!res.ok) throw new Error("Forecasting failed");
       const data = await res.json();
       setPrediction(data);
+
+      // Fetch similar historical incidents in parallel
+      try {
+        const simRes = await fetch(`${API_BASE}/similar-events`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cause,
+            corridor,
+            hour: parseInt(hour),
+            day_of_week: parseInt(dayOfWeek),
+            event_type: eventType,
+            top_k: 6
+          })
+        });
+        if (simRes.ok) {
+          const simData = await simRes.json();
+          setSimilarEvents(simData);
+          setSimilarExpanded(true);
+        }
+      } catch (_) { /* non-blocking */ }
     } catch (err) {
       console.error("Forecasting failed", err);
     } finally {
@@ -954,6 +980,114 @@ export default function ForecastPlanner() {
                 Export PDF Dispatch Order
               </button>
             </div>
+
+            {/* ── Similar Historical Incidents (Analog Search) ─────────── */}
+            {similarEvents && similarEvents.total_matched > 0 && (
+              <div style={{
+                marginTop: '1.25rem',
+                background: 'var(--card-bg)',
+                borderRadius: '12px',
+                border: '1px solid var(--border-color)',
+                overflow: 'hidden'
+              }}>
+                {/* Header */}
+                <div
+                  onClick={() => setSimilarExpanded(e => !e)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 14px', cursor: 'pointer',
+                    background: 'rgba(99,102,241,0.08)',
+                    borderBottom: similarExpanded ? '1px solid var(--border-color)' : 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Search size={14} color="#6366f1" />
+                    <span style={{ fontWeight: '700', fontSize: '12px', color: 'var(--text-primary)' }}>
+                      Similar Past Incidents
+                    </span>
+                    <span style={{
+                      background: '#6366f1', color: '#fff',
+                      borderRadius: '20px', padding: '1px 7px', fontSize: '10px', fontWeight: '700'
+                    }}>{similarEvents.total_matched}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {similarEvents.stats && (
+                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                        Median: <strong style={{ color: '#f59e0b' }}>{formatMinutes(similarEvents.stats.median_duration)}</strong>
+                        {' '}(P25–P75: {formatMinutes(similarEvents.stats.p25_duration)}–{formatMinutes(similarEvents.stats.p75_duration)})
+                      </span>
+                    )}
+                    {similarExpanded ? <ChevronUp size={14} color="var(--text-secondary)" /> : <ChevronDown size={14} color="var(--text-secondary)" />}
+                  </div>
+                </div>
+
+                {/* Table */}
+                {similarExpanded && (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                      <thead>
+                        <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
+                          {['Cause','Corridor','Actual Duration','Closure','Hour','Station','Match'].map(h => (
+                            <th key={h} style={{
+                              padding: '7px 10px', textAlign: 'left',
+                              color: 'var(--text-secondary)', fontWeight: '600',
+                              borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap'
+                            }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {similarEvents.similar_events.map((ev, i) => (
+                          <tr key={i} style={{
+                            borderBottom: i < similarEvents.similar_events.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                            transition: 'background 0.15s'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                            <td style={{ padding: '7px 10px', color: 'var(--text-primary)', fontWeight: '500' }}>{ev.cause}</td>
+                            <td style={{ padding: '7px 10px', color: 'var(--text-secondary)' }}>
+                              {ev.corridor === 'Non-corridor' ? <span style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>—</span> : ev.corridor}
+                            </td>
+                            <td style={{ padding: '7px 10px' }}>
+                              <span style={{
+                                color: ev.actual_duration_minutes > 120 ? '#ef4444' : ev.actual_duration_minutes > 60 ? '#f59e0b' : '#10b981',
+                                fontWeight: '600'
+                              }}>{formatMinutes(ev.actual_duration_minutes)}</span>
+                            </td>
+                            <td style={{ padding: '7px 10px' }}>
+                              {ev.requires_road_closure
+                                ? <span style={{ color: '#ef4444', fontSize: '10px', fontWeight: '700' }}>YES</span>
+                                : <span style={{ color: '#10b981', fontSize: '10px', fontWeight: '700' }}>NO</span>}
+                            </td>
+                            <td style={{ padding: '7px 10px', color: 'var(--text-secondary)' }}>
+                              <Clock size={10} style={{ marginRight: '3px', verticalAlign: 'middle' }} />
+                              {String(ev.hour).padStart(2,'0')}:00
+                            </td>
+                            <td style={{ padding: '7px 10px', color: 'var(--text-secondary)', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.police_station}</td>
+                            <td style={{ padding: '7px 10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <div style={{ flex: 1, height: '4px', background: 'var(--border-color)', borderRadius: '2px', minWidth: '30px' }}>
+                                  <div style={{ height: '100%', borderRadius: '2px', background: '#6366f1', width: `${Math.min(100, (ev.similarity_score / 8) * 100)}%` }} />
+                                </div>
+                                <span style={{ fontSize: '10px', color: '#6366f1', fontWeight: '700', whiteSpace: 'nowrap' }}>{ev.similarity_score}</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {similarEvents.stats && (
+                      <div style={{
+                        padding: '8px 12px', fontSize: '10px', color: 'var(--text-secondary)',
+                        borderTop: '1px solid var(--border-color)', fontStyle: 'italic'
+                      }}>
+                        Based on {similarEvents.total_matched} similar historical records · Road closure rate: {similarEvents.stats.closure_rate_pct}%
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
           </div>
         ) : (

@@ -20,6 +20,7 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
   const [monthlyData, setMonthlyData] = useState([]);
   const [weeklyHeatmap, setWeeklyHeatmap] = useState([]);
   const [venueRecurrence, setVenueRecurrence] = useState([]);
+  const [cascadeData, setCascadeData] = useState(null);
 
   // Internal sub-view pill nav
   const [analyticsTab, setAnalyticsTab] = useState('overview');
@@ -63,15 +64,17 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
   useEffect(() => {
     const fetchExtras = async () => {
       try {
-        const [mRes, wRes, vRes] = await Promise.all([
+        const [mRes, wRes, vRes, cRes] = await Promise.all([
           fetch(`${API_BASE}/monthly-distribution`),
           fetch(`${API_BASE}/weekly-heatmap`),
           fetch(`${API_BASE}/venue-recurrence`),
+          fetch(`${API_BASE}/cascade-analysis`),
         ]);
-        const [m, w, v] = await Promise.all([mRes.json(), wRes.json(), vRes.json()]);
+        const [m, w, v, c] = await Promise.all([mRes.json(), wRes.json(), vRes.json(), cRes.json()]);
         setMonthlyData(m.monthly || []);
         setWeeklyHeatmap(w.weekly_heatmap || []);
         setVenueRecurrence(v.venue_recurrence || []);
+        setCascadeData(c);
       } catch (e) {
         console.error("Failed to load extra analytics", e);
       }
@@ -435,6 +438,60 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
             </div>
 
           </div>
+
+          {/* Cascade Concurrent Incident Risk (gridlock-oracle inspired) */}
+          {cascadeData && cascadeData.cascade_corridors && cascadeData.cascade_corridors.length > 0 && (
+            <div className="panel" style={{ marginTop: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <h2 className="panel-title" style={{ margin: 0 }}>⚡ Cascade Concurrent Incident Risk</h2>
+                  <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+                    Corridors where multiple incidents historically overlapped in time — compounding severity beyond sum of parts.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '16px', fontSize: '11px' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>
+                    <strong style={{ color: 'var(--text-primary)' }}>{cascadeData.total_cascade_pairs}</strong> total cascade pairs
+                  </span>
+                  <span style={{ color: 'var(--text-secondary)' }}>
+                    <strong style={{ color: 'var(--text-primary)' }}>{cascadeData.corridors_affected}</strong> corridors affected
+                  </span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {cascadeData.cascade_corridors.slice(0, 6).map((c, i) => {
+                  const color = c.risk_level === 'High' ? '#ef4444' : c.risk_level === 'Medium' ? '#f59e0b' : '#6366f1';
+                  const maxPairs = cascadeData.cascade_corridors[0].cascade_pairs || 1;
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ width: '130px', fontSize: '11px', color: 'var(--text-primary)', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>
+                        {c.corridor}
+                      </div>
+                      <div style={{ flex: 1, height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', borderRadius: '4px', background: color,
+                          width: `${(c.cascade_pairs / maxPairs) * 100}%`,
+                          transition: 'width 0.6s ease'
+                        }} />
+                      </div>
+                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)', minWidth: '40px', textAlign: 'right' }}>
+                        {c.cascade_pairs} pairs
+                      </span>
+                      <span style={{
+                        fontSize: '10px', fontWeight: '700', padding: '2px 7px', borderRadius: '10px',
+                        background: `${color}20`, color, minWidth: '54px', textAlign: 'center'
+                      }}>
+                        Risk {c.avg_cascade_risk}/10
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '10px', fontStyle: 'italic' }}>
+                Cascade risk = f(overlap duration, road closure count). Score ≥7 = High · ≥4 = Medium · &lt;4 = Low.
+              </p>
+            </div>
+          )}
 
         </>
       )}
