@@ -385,48 +385,55 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
             </div>
           </div>
 
-          {/* Charts Grid */}
+          {/* Charts Grid — consolidated */}
           <div className="grid-2">
-            <div className="panel">
-              <h2 className="panel-title" style={{ marginBottom: '1rem' }}>Incidents by Cause</h2>
-              <canvas id="causeChart" height="200" />
-            </div>
-            <div className="panel">
-              <h2 className="panel-title" style={{ marginBottom: '1rem' }}>Vehicle Type Breakdown</h2>
-              <canvas id="vehChart" height="200" />
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.75rem', textAlign: 'center' }}>
-                Heavy commercial vehicles and BMTC buses constitute over 60% of breakdown obstructions.
-              </p>
-            </div>
-          </div>
 
-          <div className="grid-2">
-            <div className="panel">
-              <h2 className="panel-title" style={{ marginBottom: '1rem' }}>Hourly Distribution (IST)</h2>
-              <canvas id="hourChart" height="150" />
-            </div>
-            <div className="panel">
-              <h2 className="panel-title" style={{ marginBottom: '1rem' }}>Top 15 Most Active Police Stations</h2>
-              <div className="table-wrapper">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Police Station</th>
-                      <th>Incident Count</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {analytics.top_police_stations.map((ps, i) => (
-                      <tr key={i}>
-                        <td style={{ textTransform: 'capitalize' }}>{ps.police_station}</td>
-                        <td>{ps.count}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {/* LEFT: bar + doughnut stacked in one panel */}
+            <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div>
+                <h2 className="panel-title" style={{ marginBottom: '0.75rem' }}>Incidents by Cause</h2>
+                <canvas id="causeChart" height="140" />
+              </div>
+              <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                <h2 className="panel-title" style={{ marginBottom: '0.75rem' }}>Vehicle Type Breakdown</h2>
+                <canvas id="vehChart" height="130" />
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.5rem', textAlign: 'center' }}>
+                  Heavy commercial vehicles &amp; BMTC buses → 60%+ of breakdowns
+                </p>
               </div>
             </div>
+
+            {/* RIGHT: hourly line + police stations table in one panel */}
+            <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div>
+                <h2 className="panel-title" style={{ marginBottom: '0.75rem' }}>Hourly Distribution (IST)</h2>
+                <canvas id="hourChart" height="140" />
+              </div>
+              <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                <h2 className="panel-title" style={{ marginBottom: '0.75rem' }}>Top 15 Most Active Police Stations</h2>
+                <div className="table-wrapper" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Police Station</th>
+                        <th>Incident Count</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analytics.top_police_stations.map((ps, i) => (
+                        <tr key={i}>
+                          <td style={{ textTransform: 'capitalize' }}>{ps.police_station}</td>
+                          <td>{ps.count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
           </div>
+
         </>
       )}
 
