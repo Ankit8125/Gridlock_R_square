@@ -210,7 +210,7 @@ export default function LiveMap({ junctions, lightMode }) {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <div style={{ width: '10px', height: '10px', borderRadius: '50%', border: '2.5px dashed #6366f1', background: 'rgba(99,102,241,0.25)' }} />
-            <span>Moderate (Score < 45)</span>
+             <span>Moderate (Score &lt; 45)</span>
           </div>
         </div>
       </div>
