@@ -207,7 +207,7 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
         options: {
           responsive: true,
           plugins: {
-            legend: { position: 'right', labels: { color: '#f8fafc', boxWidth: 12 } }
+            legend: { position: 'right', labels: { color: '#94a3b8', boxWidth: 12 } }
           }
         }
       });
@@ -396,8 +396,8 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
               </div>
               <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
                 <h2 className="panel-title" style={{ marginBottom: '0.75rem' }}>Vehicle Type Breakdown</h2>
-                <div style={{ maxWidth: '260px', margin: '0 auto' }}>
-                  <canvas id="vehChart" height="80" />
+                <div style={{ maxWidth: '380px', margin: '0 auto' }}>
+                  <canvas id="vehChart" height="140" />
                 </div>
                 <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.5rem', textAlign: 'center' }}>
                   Heavy commercial vehicles &amp; BMTC buses → 60%+ of breakdowns

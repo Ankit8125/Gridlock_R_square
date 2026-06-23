@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { Info, Users, AlertTriangle, Zap, Download, TrendingDown, CloudRain, Compass, RefreshCw } from 'lucide-react';
+import { Info, Users, AlertTriangle, Zap, Download, TrendingDown, CloudRain, Compass, RefreshCw, Activity } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 
   (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
@@ -90,6 +90,27 @@ export default function ForecastPlanner() {
     }
   }, [latitude, longitude]);
 
+  const fetchDetourRoute = async (startLat, startLon, endLat, endLon) => {
+    setRoutingSource("OSRM API");
+    try {
+      const res = await fetch(`https://router.projectosrm.org/route/v1/driving/${startLon},${startLat};${endLon},${endLat}?overview=full&geometries=geojson`);
+      if (!res.ok) throw new Error("OSRM service failed");
+      const data = await res.json();
+      
+      if (data.routes && data.routes.length > 0) {
+        const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        drawRouteOnMap(coords);
+      } else {
+        throw new Error("No routing results");
+      }
+    } catch (e) {
+      console.warn("OSRM offline or query error, using straight fallback detour line", e);
+      setRoutingSource("Fallback (OSRM Offline)");
+      // Fallback straight line
+      drawRouteOnMap([[startLat, startLon], [endLat, endLon]], true);
+    }
+  };
+
   // Handle Predictions visual elements update (markers, rings, detours)
   useEffect(() => {
     if (!prediction || !plannerMapRef.current) return;
@@ -159,26 +180,7 @@ export default function ForecastPlanner() {
     detourLineRef.current = line;
   };
 
-  const fetchDetourRoute = async (startLat, startLon, endLat, endLon) => {
-    setRoutingSource("OSRM API");
-    try {
-      const res = await fetch(`https://router.projectosrm.org/route/v1/driving/${startLon},${startLat};${endLon},${endLat}?overview=full&geometries=geojson`);
-      if (!res.ok) throw new Error("OSRM service failed");
-      const data = await res.json();
-      
-      if (data.routes && data.routes.length > 0) {
-        const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-        drawRouteOnMap(coords);
-      } else {
-        throw new Error("No routing results");
-      }
-    } catch (e) {
-      console.warn("OSRM offline or query error, using straight fallback detour line", e);
-      setRoutingSource("Fallback (OSRM Offline)");
-      // Fallback straight line
-      drawRouteOnMap([[startLat, startLon], [endLat, endLon]], true);
-    }
-  };
+
 
   const handleForecastSubmit = async (e) => {
     e.preventDefault();
@@ -584,7 +586,7 @@ export default function ForecastPlanner() {
                 </div>
                 {prediction.impact.explanations?.length > 0 && (
                   <ul className="reason-list">
-                    {prediction.impact.explanations.slice(0, 4).map((reason, index) => (
+                    {prediction.impact?.explanations?.slice(0, 4).map((reason, index) => (
                       <li key={index}>{reason}</li>
                     ))}
                   </ul>
@@ -665,7 +667,7 @@ export default function ForecastPlanner() {
                   <Users size={14} color="#10b981" />
                   Station Deployment Allocation
                 </div>
-                {prediction.resources.station_allocations.map((alloc, i) => (
+                {prediction.resources?.station_allocations?.map((alloc, i) => (
                   <div key={i} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '8px 12px', marginBottom: '6px',
@@ -747,38 +749,40 @@ export default function ForecastPlanner() {
             )}
 
             {/* Resources (existing) */}
-            <div className="result-card" style={{ marginBottom: '1rem' }}>
-              <div className="panel-title" style={{ fontSize: '0.9rem', marginBottom: '0.75rem' }}>Recommended Deployment Plan</div>
-              <div className="resources-panel">
-                <div className="resource-grid">
-                  <div className="resource-item">
-                    <div className="resource-title">Sub-Inspector (SI)</div>
-                    <div className="resource-value">{prediction.resources.manpower.sub_inspector}</div>
-                  </div>
-                  <div className="resource-item">
-                    <div className="resource-title">Head Constable (HC)</div>
-                    <div className="resource-value">{prediction.resources.manpower.head_constable}</div>
-                  </div>
-                  <div className="resource-item">
-                    <div className="resource-title">Constables (PC)</div>
-                    <div className="resource-value">{prediction.resources.manpower.constable}</div>
-                  </div>
-                  <div className="resource-item total">
-                    <div className="resource-title" style={{ display: 'flex', justifyContent: 'center', gap: '0.25rem', alignItems: 'center' }}>
-                      <Users size={12} /> Total Deployable Manpower
+            {prediction.resources && (
+              <div className="result-card" style={{ marginBottom: '1rem' }}>
+                <div className="panel-title" style={{ fontSize: '0.9rem', marginBottom: '0.75rem' }}>Recommended Deployment Plan</div>
+                <div className="resources-panel">
+                  <div className="resource-grid">
+                    <div className="resource-item">
+                      <div className="resource-title">Sub-Inspector (SI)</div>
+                      <div className="resource-value">{prediction.resources.manpower?.sub_inspector}</div>
                     </div>
-                    <div className="resource-value" style={{ color: 'var(--primary)' }}>{prediction.resources.manpower.total_officers} Officers</div>
+                    <div className="resource-item">
+                      <div className="resource-title">Head Constable (HC)</div>
+                      <div className="resource-value">{prediction.resources.manpower?.head_constable}</div>
+                    </div>
+                    <div className="resource-item">
+                      <div className="resource-title">Constables (PC)</div>
+                      <div className="resource-value">{prediction.resources.manpower?.constable}</div>
+                    </div>
+                    <div className="resource-item total">
+                      <div className="resource-title" style={{ display: 'flex', justifyContent: 'center', gap: '0.25rem', alignItems: 'center' }}>
+                        <Users size={12} /> Total Deployable Manpower
+                      </div>
+                      <div className="resource-value" style={{ color: 'var(--primary)' }}>{prediction.resources.manpower?.total_officers} Officers</div>
+                    </div>
                   </div>
-                </div>
 
-                <div className="resource-grid">
-                  <div className="resource-item total" style={{ background: 'rgba(245, 158, 11, 0.05)', borderColor: 'rgba(245, 158, 11, 0.15)' }}>
-                    <div className="resource-title">Barricades Deployment</div>
-                    <div className="resource-value" style={{ color: 'var(--warning)' }}>{prediction.resources.barricades} Barricades</div>
+                  <div className="resource-grid">
+                    <div className="resource-item total" style={{ background: 'rgba(245, 158, 11, 0.05)', borderColor: 'rgba(245, 158, 11, 0.15)' }}>
+                      <div className="resource-title">Barricades Deployment</div>
+                      <div className="resource-value" style={{ color: 'var(--warning)' }}>{prediction.resources.barricades} Barricades</div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Tactical Diversion Plan */}
             {prediction.diversion_plan && (
@@ -791,7 +795,7 @@ export default function ForecastPlanner() {
                   {prediction.diversion_plan.summary || "No summary provided."}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {Array.isArray(prediction.diversion_plan.steps) && prediction.diversion_plan.steps.map((step, i) => (
+                  {Array.isArray(prediction.diversion_plan?.steps) && prediction.diversion_plan.steps.map((step, i) => (
                     <div key={i} style={{
                       fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--nav-bg)',
                       padding: '6px 10px', borderRadius: '6px', borderLeft: '3px solid var(--primary)'
@@ -818,7 +822,7 @@ export default function ForecastPlanner() {
                     </tr>
                   </thead>
                   <tbody>
-                    {prediction.nearest_junction_checkpoints.map((j, i) => (
+                    {prediction.nearest_junction_checkpoints?.map((j, i) => (
                       <tr key={i}>
                         <td style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>{j.name}</td>
                         <td>{j.distance_meters} m</td>
@@ -838,7 +842,7 @@ export default function ForecastPlanner() {
             </div>
 
             {/* Similar historical events */}
-            {prediction.similar_historical_events.length > 0 && (
+            {prediction.similar_historical_events?.length > 0 && (
               <div className="result-card" style={{ marginTop: '1rem' }}>
                 <div className="panel-title" style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>Comparable Historical Cases</div>
                 <div className="table-wrapper">
@@ -851,7 +855,7 @@ export default function ForecastPlanner() {
                       </tr>
                     </thead>
                     <tbody>
-                      {prediction.similar_historical_events.slice(0, 3).map((item, i) => (
+                      {prediction.similar_historical_events?.slice(0, 3).map((item, i) => (
                         <tr key={i}>
                           <td style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.address}</td>
                           <td style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description}</td>
