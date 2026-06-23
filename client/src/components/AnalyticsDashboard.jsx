@@ -396,7 +396,9 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
               </div>
               <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
                 <h2 className="panel-title" style={{ marginBottom: '0.75rem' }}>Vehicle Type Breakdown</h2>
-                <canvas id="vehChart" height="130" />
+                <div style={{ maxWidth: '260px', margin: '0 auto' }}>
+                  <canvas id="vehChart" height="80" />
+                </div>
                 <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.5rem', textAlign: 'center' }}>
                   Heavy commercial vehicles &amp; BMTC buses → 60%+ of breakdowns
                 </p>
@@ -411,7 +413,7 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
               </div>
               <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
                 <h2 className="panel-title" style={{ marginBottom: '0.75rem' }}>Top 15 Most Active Police Stations</h2>
-                <div className="table-wrapper" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                <div className="table-wrapper">
                   <table>
                     <thead>
                       <tr>

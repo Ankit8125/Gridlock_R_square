@@ -1,80 +1,77 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { X, ChevronLeft, ChevronRight, Compass, Bot, Map, BarChart2, BookOpen, LayoutDashboard } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { X, ChevronLeft, ChevronRight, Compass, Bot, Map, BarChart2, LayoutDashboard } from 'lucide-react';
 
 const TOUR_KEY = 'astram_toured_v2';
+const PAD = 14;
 
+// `tab` = which app tab to navigate to before showing this step (null = stay on current)
 const STEPS = [
   {
     id: 'welcome',
-    target: null, // centre-screen modal, no spotlight
-    icon: <LayoutDashboard size={28} color="#3b82f6" />,
+    tab: 'command',     // always start from Command Center
+    target: null,       // centre-screen modal
+    icon: <LayoutDashboard size={26} color="#3b82f6" />,
     title: 'Welcome to ASTRAM',
-    body: 'ASTRAM is Bengaluru\'s AI-powered traffic obstruction and event intelligence platform. It helps traffic police respond faster using ML prediction, tactical deployment orders, and real-time hotspot mapping.',
+    body: "ASTRAM is Bengaluru's AI-powered traffic obstruction and event intelligence platform. It helps traffic police respond faster using ML prediction, tactical deployment orders, and real-time hotspot mapping.",
     tip: 'This tour takes ~60 seconds. You can skip at any time or re-open it with the ? button.',
   },
   {
     id: 'command',
+    tab: null,
     target: 'tour-command-center',
-    icon: <LayoutDashboard size={28} color="#3b82f6" />,
+    icon: <LayoutDashboard size={26} color="#3b82f6" />,
     title: 'Command Center',
-    body: 'Your dashboard home. See live KPI metrics, system health, top chronic hotspots, and quick-access cards to every major feature. Always start here.',
-    tip: 'The KPIs update whenever you upload new incident data.',
+    body: 'Your dashboard home. See live KPI metrics, system health, top chronic hotspots, and quick-access cards to every major feature.',
+    tip: 'The KPIs update whenever you upload new incident data from the Model Health tab.',
   },
   {
     id: 'agent',
-    target: 'tour-dispatch-ai',
-    icon: <Bot size={28} color="#8b5cf6" />,
+    tab: null,
+    target: 'tab-agent',    // always-visible nav button in header
+    icon: <Bot size={26} color="#8b5cf6" />,
     title: 'Dispatch AI Agent',
-    body: 'Paste any field incident report in plain English. ASTRAM\'s agentic pipeline parses it, fetches real-time weather, runs the ML models, and produces a complete tactical response with radio dispatch orders.',
+    body: "Paste any field incident report in plain English. ASTRAM's pipeline parses it, fetches real-time weather, runs the ML models, and produces a full tactical response with radio dispatch orders.",
     tip: 'Try the preset report buttons to see a live demo without the backend.',
   },
   {
     id: 'planner',
-    target: 'tab-planner',
-    icon: <Compass size={28} color="#10b981" />,
+    tab: null,
+    target: 'tab-planner',  // always-visible nav button
+    icon: <Compass size={26} color="#10b981" />,
     title: 'Predict & Plan',
-    body: 'Simulate the impact of an upcoming or unplanned event before it happens. Set location, cause, hour, and day — get duration forecasts, manpower estimates, detour routes, and what-if scenario analysis.',
+    body: 'Simulate the impact of an upcoming or unplanned event. Set location, cause, hour and day — get duration forecasts, manpower estimates, detour routes, and what-if scenario analysis.',
     tip: 'Drag the map marker to set the exact incident location.',
   },
   {
     id: 'live',
-    target: 'tab-live',
-    icon: <Map size={28} color="#f59e0b" />,
+    tab: null,
+    target: 'tab-live',     // always-visible nav button
+    icon: <Map size={26} color="#f59e0b" />,
     title: 'Hotspot Map',
     body: 'Visualizes AI-clustered (DBSCAN) congestion zones across Bengaluru. Critical clusters pulse in red, high-risk in orange, moderate in indigo. The sidebar shows real-time surge alerts.',
     tip: 'Click any cluster circle on the map for incident count and risk score.',
   },
   {
     id: 'analytics',
-    target: 'tab-analytics',
-    icon: <BarChart2 size={28} color="#6366f1" />,
+    tab: null,
+    target: 'tab-analytics', // always-visible nav button
+    icon: <BarChart2 size={26} color="#6366f1" />,
     title: 'Analytics',
-    body: 'Deep-dive into historical data. Use the three internal tabs: Overview for incident distributions, Trends for seasonal and hourly heatmaps, and Model Health for diagnostics, XAI feature weights, and model retraining.',
-    tip: 'You can upload new CSV event data in Model Health → Retrain section to improve predictions.',
+    body: 'Deep-dive into historical data with three focused views: Overview for distributions, Trends for seasonal & hourly heatmaps, and Model Health for diagnostics, XAI feature weights, and retraining.',
+    tip: 'Upload new CSV event data in Model Health → Retrain to improve predictions.',
   },
 ];
 
-function getElementRect(id) {
-  const el = document.getElementById(id);
-  if (!el) return null;
-  const rect = el.getBoundingClientRect();
-  return {
-    top: rect.top + window.scrollY,
-    left: rect.left + window.scrollX,
-    width: rect.width,
-    height: rect.height,
-  };
-}
-
-const PAD = 16;
-
-export default function AppTour({ forceOpen, onClose }) {
+export default function AppTour({ forceOpen, onClose, onNavigate }) {
   const [step, setStep] = useState(0);
   const [visible, setVisible] = useState(false);
   const [spotRect, setSpotRect] = useState(null);
-  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0, placement: 'bottom' });
+  const [tipPos, setTipPos] = useState({ top: 0, left: 0, placement: 'center' });
+  const [posReady, setPosReady] = useState(false);
+  const tooltipRef = useRef(null);
+  const rafRef = useRef(null);
 
-  // Decide whether to show on mount
+  // Show on first visit, or when forceOpen toggles
   useEffect(() => {
     const done = localStorage.getItem(TOUR_KEY);
     if (!done || forceOpen) {
@@ -85,57 +82,72 @@ export default function AppTour({ forceOpen, onClose }) {
 
   const currentStep = STEPS[step];
 
-  // Recompute spotlight + tooltip whenever step changes
-  const computePositions = useCallback(() => {
-    if (!currentStep.target) {
-      setSpotRect(null);
-      setTooltipPos({ top: '50%', left: '50%', placement: 'center' });
-      return;
-    }
-
-    const rect = getElementRect(currentStep.target);
-    if (!rect) {
-      setSpotRect(null);
-      setTooltipPos({ top: '50%', left: '50%', placement: 'center' });
-      return;
-    }
-
-    setSpotRect(rect);
-
-    // Figure out where to place the tooltip card
-    const vp = window.innerHeight;
-    const spaceBelow = vp - (rect.top - window.scrollY) - rect.height;
-    const placement = spaceBelow > 240 ? 'bottom' : 'top';
-
-    const tipLeft = Math.max(12, Math.min(
-      rect.left + rect.width / 2 - 180,
-      window.innerWidth - 380
-    ));
-
-    const tipTop = placement === 'bottom'
-      ? rect.top + rect.height + PAD
-      : rect.top - PAD - 240;
-
-    setTooltipPos({ top: tipTop, left: tipLeft, placement });
-  }, [currentStep]);
-
+  // Navigate to required tab when step changes
   useEffect(() => {
     if (!visible) return;
-    // Small delay to allow DOM transitions to finish
-    const t = setTimeout(computePositions, 80);
+    if (currentStep.tab && onNavigate) {
+      onNavigate(currentStep.tab);
+    }
+  }, [step, visible]); // eslint-disable-line
+
+  // Compute spotlight + tooltip position (runs after DOM settles)
+  const computePositions = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
+    rafRef.current = requestAnimationFrame(() => {
+      if (!currentStep.target) {
+        setSpotRect(null);
+        setTipPos({ top: 0, left: 0, placement: 'center' });
+        setPosReady(true);
+        return;
+      }
+
+      const el = document.getElementById(currentStep.target);
+      if (!el) {
+        setSpotRect(null);
+        setTipPos({ top: 0, left: 0, placement: 'center' });
+        setPosReady(true);
+        return;
+      }
+
+      const r = el.getBoundingClientRect();
+      const spot = {
+        top: r.top,
+        left: r.left,
+        width: r.width,
+        height: r.height,
+      };
+      setSpotRect(spot);
+
+      // Choose tooltip placement
+      const spaceBelow = window.innerHeight - r.bottom;
+      const placement = spaceBelow >= 260 ? 'below' : 'above';
+
+      const tipW = 360;
+      const rawLeft = r.left + r.width / 2 - tipW / 2;
+      const left = Math.max(12, Math.min(rawLeft, window.innerWidth - tipW - 12));
+
+      const top = placement === 'below'
+        ? r.bottom + PAD + 10
+        : r.top - PAD - 260; // approximate tooltip height
+
+      setTipPos({ top, left, placement });
+      setPosReady(true);
+    });
+  }, [currentStep]);
+
+  // Recompute on step/visibility change — 200ms delay gives tab/DOM time to render
+  useEffect(() => {
+    if (!visible) return;
+    setPosReady(false);
+    const t = setTimeout(computePositions, 200);
     window.addEventListener('resize', computePositions);
     return () => {
       clearTimeout(t);
       window.removeEventListener('resize', computePositions);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [visible, step, computePositions]);
-
-  // Scroll element into view when step changes
-  useEffect(() => {
-    if (!visible || !currentStep.target) return;
-    const el = document.getElementById(currentStep.target);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, [step, visible, currentStep.target]);
+  }, [step, visible, computePositions]);
 
   const finishTour = () => {
     localStorage.setItem(TOUR_KEY, '1');
@@ -143,60 +155,50 @@ export default function AppTour({ forceOpen, onClose }) {
     if (onClose) onClose();
   };
 
-  const next = () => {
-    if (step < STEPS.length - 1) setStep(s => s + 1);
-    else finishTour();
+  const goTo = (idx) => {
+    setPosReady(false);
+    setStep(idx);
   };
 
-  const prev = () => {
-    if (step > 0) setStep(s => s - 1);
-  };
+  const next = () => step < STEPS.length - 1 ? goTo(step + 1) : finishTour();
+  const prev = () => step > 0 && goTo(step - 1);
 
   if (!visible) return null;
 
-  const isCenter = tooltipPos.placement === 'center';
+  const isCenter = !currentStep.target || tipPos.placement === 'center';
 
   return (
     <>
-      {/* Backdrop overlay — SVG cut-out spotlight */}
-      <div className="tour-backdrop" onClick={(e) => e.stopPropagation()}>
-        {spotRect ? (
+      {/* ── Backdrop / Spotlight ─────────────────────────────── */}
+      <div className="tour-backdrop">
+        {posReady && spotRect ? (
           <svg
-            className="tour-svg"
-            width="100%"
-            height="100%"
-            style={{ position: 'fixed', inset: 0, pointerEvents: 'none' }}
+            style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10000 }}
           >
             <defs>
               <mask id="tour-mask">
                 <rect width="100%" height="100%" fill="white" />
                 <rect
-                  x={spotRect.left - window.scrollX - PAD}
-                  y={spotRect.top - window.scrollY - PAD}
+                  x={spotRect.left - PAD}
+                  y={spotRect.top - PAD}
                   width={spotRect.width + PAD * 2}
                   height={spotRect.height + PAD * 2}
-                  rx="12"
+                  rx="10"
                   fill="black"
                 />
               </mask>
             </defs>
-            <rect
-              width="100%"
-              height="100%"
-              fill="rgba(0,0,0,0.72)"
-              mask="url(#tour-mask)"
-            />
+            <rect width="100%" height="100%" fill="rgba(0,0,0,0.70)" mask="url(#tour-mask)" />
             {/* Highlight ring */}
             <rect
-              x={spotRect.left - window.scrollX - PAD}
-              y={spotRect.top - window.scrollY - PAD}
+              x={spotRect.left - PAD}
+              y={spotRect.top - PAD}
               width={spotRect.width + PAD * 2}
               height={spotRect.height + PAD * 2}
-              rx="12"
+              rx="10"
               fill="none"
-              stroke="#3b82f6"
+              stroke="rgba(59,130,246,0.8)"
               strokeWidth="2"
-              opacity="0.8"
             />
           </svg>
         ) : (
@@ -204,20 +206,24 @@ export default function AppTour({ forceOpen, onClose }) {
         )}
       </div>
 
-      {/* Tooltip Card */}
+      {/* ── Tooltip Card ─────────────────────────────────────── */}
       <div
+        ref={tooltipRef}
         className={`tour-tooltip ${isCenter ? 'tour-tooltip--center' : ''}`}
         style={isCenter ? {} : {
           position: 'fixed',
-          top: tooltipPos.top - window.scrollY,
-          left: tooltipPos.left,
+          top: tipPos.top,
+          left: tipPos.left,
           zIndex: 10001,
+          // smooth slide between positions
+          transition: posReady ? 'top 0.3s cubic-bezier(0.16,1,0.3,1), left 0.3s cubic-bezier(0.16,1,0.3,1), opacity 0.2s' : 'none',
+          opacity: posReady ? 1 : 0,
         }}
       >
         {/* Header */}
         <div className="tour-tooltip-header">
           <div className="tour-tooltip-icon">{currentStep.icon}</div>
-          <div>
+          <div style={{ flex: 1 }}>
             <div className="tour-step-count">Step {step + 1} of {STEPS.length}</div>
             <div className="tour-tooltip-title">{currentStep.title}</div>
           </div>
@@ -242,7 +248,7 @@ export default function AppTour({ forceOpen, onClose }) {
             <button
               key={i}
               className={`tour-dot ${i === step ? 'tour-dot--active' : ''}`}
-              onClick={() => setStep(i)}
+              onClick={() => goTo(i)}
               aria-label={`Go to step ${i + 1}`}
             />
           ))}
@@ -250,9 +256,7 @@ export default function AppTour({ forceOpen, onClose }) {
 
         {/* Navigation */}
         <div className="tour-nav">
-          <button className="tour-btn tour-btn--ghost" onClick={finishTour}>
-            Skip
-          </button>
+          <button className="tour-btn tour-btn--ghost" onClick={finishTour}>Skip</button>
           <div style={{ display: 'flex', gap: '8px' }}>
             {step > 0 && (
               <button className="tour-btn tour-btn--secondary" onClick={prev}>
