@@ -1,0 +1,40 @@
+{
+  "duration_model": {
+    "event_cause_clean": 0.4281,
+    "longitude": 0.1433,
+    "police_station_clean": 0.1127,
+    "latitude": 0.1046,
+    "corridor_clean": 0.0552,
+    "local_hour_cos": 0.0501,
+    "local_hour_sin": 0.0413,
+    "local_day_sin": 0.0343,
+    "local_day_cos": 0.0215,
+    "is_peak_hour": 0.0058,
+    "event_type": 0.0031
+  },
+  "priority_model": {
+    "is_peak_hour": 0.1814,
+    "event_cause_clean": 0.1675,
+    "police_station_clean": 0.1547,
+    "local_hour_cos": 0.1366,
+    "longitude": 0.1014,
+    "latitude": 0.0912,
+    "local_hour_sin": 0.0769,
+    "event_type": 0.0439,
+    "local_day_sin": 0.0278,
+    "local_day_cos": 0.0186
+  },
+  "closure_model": {
+    "police_station_clean": 0.1804,
+    "event_cause_clean": 0.1713,
+    "latitude": 0.1287,
+    "longitude": 0.122,
+    "corridor_clean": 0.0925,
+    "event_type": 0.0697,
+    "local_hour_cos": 0.0658,
+    "local_hour_sin": 0.0639,
+    "local_day_sin": 0.0475,
+    "local_day_cos": 0.0414,
+    "is_peak_hour": 0.0167
+  }
+}

@@ -76,6 +76,11 @@ body.light-mode .theme-toggle-btn:hover {
   font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
 }
 
+html {
+  background-color: var(--bg-color);
+  min-height: 100vh;
+}
+
 body {
   background-color: var(--bg-color);
   color: var(--text-primary);

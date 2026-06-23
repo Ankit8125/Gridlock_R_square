@@ -15,6 +15,7 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
   const hourChartRef = useRef(null);
   const vehChartRef = useRef(null);
   const monthChartRef = useRef(null);
+  const featureImportanceChartRef = useRef(null);
 
   const [monthlyData, setMonthlyData] = useState([]);
   const [weeklyHeatmap, setWeeklyHeatmap] = useState([]);
@@ -26,6 +27,7 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
   const [uploadMsg, setUploadMsg] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [diagnostics, setDiagnostics] = useState(null);
+  const [selectedModelXai, setSelectedModelXai] = useState('duration_model');
 
   // Toast notification state
   const [toast, setToast] = useState({ show: false, message: '', type: 'warn' });
@@ -251,6 +253,66 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
     }
     return () => { if (monthChartRef.current) monthChartRef.current.destroy(); };
   }, [monthlyData, analytics]);
+
+  // 5. Explainable AI Feature Importance Chart
+  useEffect(() => {
+    if (!diagnostics || !diagnostics.feature_importances) return;
+
+    if (featureImportanceChartRef.current) {
+      featureImportanceChartRef.current.destroy();
+    }
+
+    const ctx = document.getElementById('featureImportanceChart');
+    if (ctx) {
+      const impData = diagnostics.feature_importances[selectedModelXai] || {};
+      const labels = Object.keys(impData).map(k => k.replace(/_clean/g, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+      const values = Object.values(impData).map(v => v * 100);
+
+      featureImportanceChartRef.current = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Feature Weight (%)',
+            data: values,
+            backgroundColor: 'rgba(59, 130, 246, 0.75)',
+            borderColor: '#3b82f6',
+            borderWidth: 1.5,
+            borderRadius: 4
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => `Weight: ${context.parsed.x.toFixed(2)}%`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(148, 163, 184, 0.12)' },
+              ticks: { color: '#94a3b8' },
+              title: { display: true, text: 'Importance Weight (%)', color: '#94a3b8', font: { size: 10 } }
+            },
+            y: {
+              grid: { display: false },
+              ticks: { color: '#94a3b8', font: { weight: 'bold' } }
+            }
+          }
+        }
+      });
+    }
+
+    return () => {
+      if (featureImportanceChartRef.current) {
+        featureImportanceChartRef.current.destroy();
+      }
+    };
+  }, [diagnostics, selectedModelXai]);
 
   // Compute weekly heatmap grid max for normalization
   const weeklyMax = weeklyHeatmap.reduce((mx, cell) => Math.max(mx, cell.count), 1);
@@ -533,6 +595,48 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
 
       {/* Correlation Matrix */}
       <CorrelationGrid correlationData={correlationData} />
+
+      {/* ML Feature Importance (XAI) Panel */}
+      {diagnostics && diagnostics.feature_importances && (
+        <div className="panel" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+            <div>
+              <h2 className="panel-title" style={{ marginBottom: '0.25rem' }}>Explainable AI (XAI) — ML Model Feature Weights</h2>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                This chart displays the normalized mathematical weight of each input feature in the selected pre-trained Random Forest model.
+              </p>
+            </div>
+            
+            {/* Model Selector Dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Select Model:</span>
+              <select
+                value={selectedModelXai}
+                onChange={(e) => setSelectedModelXai(e.target.value)}
+                style={{
+                  background: 'var(--form-control-bg)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="duration_model">Incident Duration Model (Regressor)</option>
+                <option value="priority_model">Congestion Priority Model (Classifier)</option>
+                <option value="closure_model">Road Closure Model (Classifier)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', background: 'var(--terminal-bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <canvas id="featureImportanceChart" height="220" />
+          </div>
+        </div>
+      )}
 
       {/* Charts Grid */}
       <div className="grid-2">

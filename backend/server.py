@@ -969,12 +969,20 @@ async def upload_csv_data(file: UploadFile = File(...)):
 
 @app.get("/api/model-diagnostic")
 def get_model_diagnostic():
-    """Return model training comparison results and metrics."""
+    """Return model training comparison results and feature importances."""
     results_path = get_path("backend/artifacts/model_comparison_results.json")
+    importance_path = get_path("backend/artifacts/feature_importance.json")
     if os.path.exists(results_path):
         try:
             with open(results_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+            if os.path.exists(importance_path):
+                try:
+                    with open(importance_path, 'r', encoding='utf-8') as f_imp:
+                        data["feature_importances"] = json.load(f_imp)
+                except Exception as e_imp:
+                    print(f"Error loading feature importances: {e_imp}")
+            return data
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error reading model diagnostics: {str(e)}")
     return {"error": "Model diagnostics not found."}
