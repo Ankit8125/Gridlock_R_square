@@ -18,6 +18,8 @@ if os.path.exists(env_path):
 
 import csv
 import json
+import time
+import random
 from fastapi import FastAPI, HTTPException, BackgroundTasks, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -205,6 +207,45 @@ def get_hotspots():
 def get_corridor_risk():
     return {"corridor_risks": predictor.corridor_risks}
 
+RESOURCE_CAPACITIES = {
+    "yelahanka": {"officers": 60, "barricades": 120},
+    "hal old airport": {"officers": 50, "barricades": 100},
+    "sadashivanagar": {"officers": 45, "barricades": 90},
+    "halasuru gate": {"officers": 55, "barricades": 110},
+    "byatarayanapura": {"officers": 40, "barricades": 80},
+    "yeshwanthpura": {"officers": 45, "barricades": 90},
+    "hennuru": {"officers": 40, "barricades": 80},
+    "kodigehalli": {"officers": 35, "barricades": 70},
+    "default": {"officers": 40, "barricades": 80}
+}
+
+active_incidents = []
+
+def cleanup_expired_incidents():
+    global active_incidents
+    now = time.time()
+    active_incidents = [inc for inc in active_incidents if inc["expires_at"] > now]
+
+def add_active_incident(station: str, officers: int, barricades: int, duration_minutes: float):
+    cleanup_expired_incidents()
+    real_duration_sec = max(5.0, duration_minutes * 0.1)
+    expires_at = time.time() + real_duration_sec
+    active_incidents.append({
+        "station": station,
+        "officers": officers,
+        "barricades": barricades,
+        "expires_at": expires_at
+    })
+
+def get_committed_resources(station: str, simulate_concurrent: bool = False):
+    cleanup_expired_incidents()
+    committed_officers = sum(inc["officers"] for inc in active_incidents if inc["station"] == station)
+    committed_barricades = sum(inc["barricades"] for inc in active_incidents if inc["station"] == station)
+    if simulate_concurrent:
+        committed_officers += random.randint(15, 25)
+        committed_barricades += random.randint(30, 60)
+    return committed_officers, committed_barricades
+
 @app.post("/api/predict")
 def predict_event_impact(req: PredictionRequest, testing: bool = False):
     try:
@@ -220,6 +261,65 @@ def predict_event_impact(req: PredictionRequest, testing: bool = False):
             generate_diversion=not testing,
             fetch_weather=not testing
         )
+        
+        # Identify closest police station sector
+        station_name = "default"
+        if predictor._station_latlon:
+            try:
+                from backend.predictor import haversine_meters
+                closest = min(
+                    predictor._station_latlon.items(),
+                    key=lambda item: haversine_meters(float(req.latitude), float(req.longitude), item[1][0], item[1][1])
+                )
+                station_name = closest[0]
+            except Exception:
+                station_name = "default"
+                
+        station_clean = station_name.strip().lower()
+        caps = RESOURCE_CAPACITIES.get(station_clean, RESOURCE_CAPACITIES["default"])
+        cap_officers = caps["officers"]
+        cap_barricades = caps["barricades"]
+        
+        # Get committed resources
+        simulate_concurrent = (req.cause in ['protest', 'water_logging', 'vip_movement', 'public_event'])
+        comm_off, comm_bar = get_committed_resources(station_clean, simulate_concurrent=simulate_concurrent)
+        
+        manpower = prediction.get("resources", {}).get("manpower", {})
+        curr_off = manpower.get("total_officers", 0)
+        curr_bar = prediction.get("resources", {}).get("barricades", 0)
+        
+        total_comm_off = comm_off + curr_off
+        total_comm_bar = comm_bar + curr_bar
+        
+        officer_strain = min(100.0, round((total_comm_off / cap_officers) * 100, 1))
+        barricade_strain = min(100.0, round((total_comm_bar / cap_barricades) * 100, 1))
+        resource_strain_pct = max(officer_strain, barricade_strain)
+        
+        # Add to active incidents list
+        add_active_incident(station_clean, curr_off, curr_bar, prediction.get("predicted_duration_minutes", 60.0))
+        
+        # Build warnings
+        warning = ""
+        is_warning_active = False
+        if resource_strain_pct >= 80.0:
+            is_warning_active = True
+            warning = f"CRITICAL STRAIN WARNING: Sector '{station_clean.title()}' is under heavy load. Committed officers: {total_comm_off}/{cap_officers} ({officer_strain}%), committed barricades: {total_comm_bar}/{cap_barricades} ({barricade_strain}%)."
+        elif resource_strain_pct >= 50.0:
+            warning = f"MODERATE STRAIN ALERT: Sector '{station_clean.title()}' is approaching capacity. Committed officers: {total_comm_off}/{cap_officers} ({officer_strain}%), committed barricades: {total_comm_bar}/{cap_barricades} ({barricade_strain}%)."
+            
+        prediction["resource_balancer"] = {
+            "sector": station_clean.title(),
+            "capacity_officers": cap_officers,
+            "capacity_barricades": cap_barricades,
+            "committed_officers": total_comm_off,
+            "committed_barricades": total_comm_bar,
+            "officer_strain_pct": officer_strain,
+            "barricade_strain_pct": barricade_strain,
+            "resource_strain_pct": resource_strain_pct,
+            "warning": warning,
+            "is_warning_active": is_warning_active
+        }
+        
         return prediction
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
@@ -869,12 +969,20 @@ async def upload_csv_data(file: UploadFile = File(...)):
 
 @app.get("/api/model-diagnostic")
 def get_model_diagnostic():
-    """Return model training comparison results and metrics."""
+    """Return model training comparison results and feature importances."""
     results_path = get_path("backend/artifacts/model_comparison_results.json")
+    importance_path = get_path("backend/artifacts/feature_importance.json")
     if os.path.exists(results_path):
         try:
             with open(results_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+            if os.path.exists(importance_path):
+                try:
+                    with open(importance_path, 'r', encoding='utf-8') as f_imp:
+                        data["feature_importances"] = json.load(f_imp)
+                except Exception as e_imp:
+                    print(f"Error loading feature importances: {e_imp}")
+            return data
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error reading model diagnostics: {str(e)}")
     return {"error": "Model diagnostics not found."}

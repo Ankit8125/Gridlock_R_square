@@ -685,6 +685,67 @@ export default function ForecastPlanner() {
               </div>
             )}
 
+            {prediction.resource_balancer && (
+              <div className="result-card" style={{
+                marginBottom: '1rem',
+                border: prediction.resource_balancer.is_warning_active 
+                  ? '1px solid rgba(239, 68, 68, 0.4)' 
+                  : '1px solid var(--border-color)',
+                background: prediction.resource_balancer.is_warning_active 
+                  ? 'rgba(239, 68, 68, 0.04)' 
+                  : 'transparent'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <div className="panel-title" style={{ fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Activity size={14} color="var(--primary)" />
+                    Sector Force Pool: {prediction.resource_balancer.sector}
+                  </div>
+                  {prediction.resource_balancer.is_warning_active && (
+                    <span className="badge badge-high" style={{ animation: 'pulse 1.5s infinite' }}>
+                      ⚠️ HEAVY STRAIN
+                    </span>
+                  )}
+                </div>
+                
+                {prediction.resource_balancer.warning && (
+                  <div style={{
+                    fontSize: '11px',
+                    color: prediction.resource_balancer.is_warning_active ? '#ef4444' : '#f59e0b',
+                    background: prediction.resource_balancer.is_warning_active ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+                    border: `1px solid ${prediction.resource_balancer.is_warning_active ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`,
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    marginBottom: '12px',
+                    fontWeight: '600'
+                  }}>
+                    {prediction.resource_balancer.warning}
+                  </div>
+                )}
+
+                <div className="resource-grid">
+                  <div className="resource-item">
+                    <div className="resource-title">Officers Committed</div>
+                    <div className="resource-value">
+                      {prediction.resource_balancer.committed_officers} / {prediction.resource_balancer.capacity_officers}
+                    </div>
+                    <span className={`badge ${prediction.resource_balancer.officer_strain_pct >= 80 ? 'badge-high' : 'badge-low'}`}>
+                      {prediction.resource_balancer.officer_strain_pct}% Strain
+                    </span>
+                  </div>
+
+                  <div className="resource-item">
+                    <div className="resource-title">Barricades Committed</div>
+                    <div className="resource-value">
+                      {prediction.resource_balancer.committed_barricades} / {prediction.resource_balancer.capacity_barricades}
+                    </div>
+                    <span className={`badge ${prediction.resource_balancer.barricade_strain_pct >= 80 ? 'badge-high' : 'badge-low'}`}>
+                      {prediction.resource_balancer.barricade_strain_pct}% Strain
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Resources (existing) */}
             <div className="result-card" style={{ marginBottom: '1rem' }}>
               <div className="panel-title" style={{ fontSize: '0.9rem', marginBottom: '0.75rem' }}>Recommended Deployment Plan</div>

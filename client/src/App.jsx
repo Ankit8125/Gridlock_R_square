@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart2, Compass, Map, BookOpen, Bot, Sun, Moon, RefreshCw, AlertOctagon } from 'lucide-react';
+import { LayoutDashboard, Bot, Compass, Map, BarChart2, BookOpen, Sun, Moon, RefreshCw, AlertOctagon, HelpCircle } from 'lucide-react';
+import CommandCenter from './components/CommandCenter';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import ForecastPlanner from './components/ForecastPlanner';
 import LiveMap from './components/LiveMap';
 import FeedbackLog from './components/FeedbackLog';
 import AICommandAgent from './components/AICommandAgent';
+import AppTour from './components/AppTour';
 import './App.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 
@@ -13,12 +15,13 @@ const API_BASE = import.meta.env.VITE_API_BASE ||
     : "/api");
 
 function App() {
-  const [activeTab, setActiveTab] = useState('analytics');
+  const [activeTab, setActiveTab] = useState('command');
   const [analytics, setAnalytics] = useState(null);
   const [junctions, setJunctions] = useState([]);
   const [correlationData, setCorrelationData] = useState(null);
   const [isLoadingGlobal, setIsLoadingGlobal] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [tourOpen, setTourOpen] = useState(false);
 
   // Theme State
   const [lightMode, setLightMode] = useState(() => {
@@ -77,7 +80,7 @@ function App() {
         <div style={{ textAlign: 'center' }}>
           <div className="brand-logo" style={{ display: 'inline-block', marginBottom: '1.5rem', fontSize: '2rem', padding: '0.75rem 1.5rem' }}>ASTRAM</div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '0.5rem', letterSpacing: '0.5px' }}>Loading Event Intelligence...</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '2rem' }}>Calibrating traffic modeling systems & loading Bengaluru GIS data</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '2rem' }}>Calibrating traffic modeling systems &amp; loading Bengaluru GIS data</p>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', background: 'var(--nav-bg)', padding: '8px 16px', borderRadius: '30px', border: '1px solid var(--border-color)' }}>
             <RefreshCw className="animate-spin" size={14} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />
             <span style={{ fontSize: '12px', fontFamily: 'monospace', color: 'var(--primary)' }}>Connecting to backend server...</span>
@@ -105,51 +108,65 @@ function App() {
     );
   }
 
+  const tabs = [
+    { id: 'command',   label: 'Command Center', icon: <LayoutDashboard size={16} /> },
+    { id: 'agent',     label: 'Dispatch AI',    icon: <Bot size={16} />,             domId: 'tab-agent' },
+    { id: 'planner',   label: 'Predict & Plan', icon: <Compass size={16} />,         domId: 'tab-planner' },
+    { id: 'live',      label: 'Hotspot Map',    icon: <Map size={16} />,              domId: 'tab-live' },
+    { id: 'analytics', label: 'Analytics',      icon: <BarChart2 size={16} />,        domId: 'tab-analytics' },
+    { id: 'learning',  label: 'Post-Event Log', icon: <BookOpen size={16} />,         domId: 'tab-learning' },
+  ];
+
   return (
     <div className="app-container">
+      {/* Walkthrough */}
+      <AppTour forceOpen={tourOpen} onClose={() => setTourOpen(false)} onNavigate={setActiveTab} />
+
       {/* Header Navbar */}
       <header className="app-header">
         <div className="brand-section">
           <div className="brand-logo">ASTRAM</div>
           <div className="brand-title">
-            <h1>Obstruction & Event Intelligence</h1>
+            <h1>Obstruction &amp; Event Intelligence</h1>
             <p>Bengaluru Traffic Management System Platform</p>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <nav className="nav-tabs">
-            <button 
-              className={`tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
-              onClick={() => setActiveTab('analytics')}
-            >
-              <BarChart2 size={16} /> Analytics
-            </button>
-            <button 
-              className={`tab-btn ${activeTab === 'planner' ? 'active' : ''}`}
-              onClick={() => setActiveTab('planner')}
-            >
-              <Compass size={16} /> Predict & Plan
-            </button>
-            <button 
-              className={`tab-btn ${activeTab === 'live' ? 'active' : ''}`}
-              onClick={() => setActiveTab('live')}
-            >
-              <Map size={16} /> Hotspots Map
-            </button>
-            <button 
-              className={`tab-btn ${activeTab === 'learning' ? 'active' : ''}`}
-              onClick={() => setActiveTab('learning')}
-            >
-              <BookOpen size={16} /> Post-Event Log
-            </button>
-            <button 
-              className={`tab-btn ${activeTab === 'agent' ? 'active' : ''}`}
-              onClick={() => setActiveTab('agent')}
-            >
-              <Bot size={16} /> AI Agent
-            </button>
+            {tabs.map(t => (
+              <button
+                key={t.id}
+                id={t.domId}
+                className={`tab-btn ${activeTab === t.id ? 'active' : ''}`}
+                onClick={() => setActiveTab(t.id)}
+              >
+                {t.icon} {t.label}
+              </button>
+            ))}
           </nav>
-          
+
+          {/* Help / Tour button */}
+          <button
+            onClick={() => setTourOpen(true)}
+            style={{
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-secondary)',
+              padding: '8px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s ease'
+            }}
+            title="Open tutorial walkthrough"
+            className="theme-toggle-btn"
+          >
+            <HelpCircle size={16} />
+          </button>
+
+          {/* Theme toggle */}
           <button 
             onClick={() => setLightMode(!lightMode)}
             style={{
@@ -174,6 +191,12 @@ function App() {
 
       {/* Main Content Area */}
       <main className="dashboard-content">
+        {activeTab === 'command' && (
+          <CommandCenter
+            analytics={analytics}
+            onNavigate={setActiveTab}
+          />
+        )}
         {activeTab === 'analytics' && (
           <AnalyticsDashboard 
             analytics={analytics} 
@@ -185,7 +208,7 @@ function App() {
           <ForecastPlanner />
         )}
         {activeTab === 'live' && (
-          <LiveMap junctions={junctions} />
+          <LiveMap junctions={junctions} lightMode={lightMode} />
         )}
         {activeTab === 'learning' && (
           <FeedbackLog />

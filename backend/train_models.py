@@ -36,20 +36,20 @@ def train_and_save_models():
     features = [
         'event_cause_clean', 'event_type', 'latitude', 'longitude', 
         'police_station_clean', 'corridor_clean', 'is_peak_hour', 
-        'local_hour', 'local_day_of_week'
+        'local_hour_sin', 'local_hour_cos', 'local_day_sin', 'local_day_cos'
     ]
     
     categorical_features = ['event_cause_clean', 'event_type', 'police_station_clean', 'corridor_clean']
-    numerical_features = ['latitude', 'longitude', 'is_peak_hour', 'local_hour', 'local_day_of_week']
+    numerical_features = ['latitude', 'longitude', 'is_peak_hour', 'local_hour_sin', 'local_hour_cos', 'local_day_sin', 'local_day_cos']
 
     # Features list (for priority classification model - corridor_clean is excluded)
     features_clf = [
         'event_cause_clean', 'event_type', 'latitude', 'longitude', 
-        'police_station_clean', 'is_peak_hour', 'local_hour', 'local_day_of_week'
+        'police_station_clean', 'is_peak_hour', 'local_hour_sin', 'local_hour_cos', 'local_day_sin', 'local_day_cos'
     ]
     
     categorical_features_clf = ['event_cause_clean', 'event_type', 'police_station_clean']
-    numerical_features_clf = ['latitude', 'longitude', 'is_peak_hour', 'local_hour', 'local_day_of_week']
+    numerical_features_clf = ['latitude', 'longitude', 'is_peak_hour', 'local_hour_sin', 'local_hour_cos', 'local_day_sin', 'local_day_cos']
 
     # Prep models directory
     models_dir = get_path("backend/models")
@@ -379,6 +379,58 @@ def train_and_save_models():
     closure_model_path = os.path.join(models_dir, "closure_model.joblib")
     joblib.dump(best_close_pipeline, closure_model_path)
     print(f"Road closure model saved to {closure_model_path}")
+
+    # Extract and save feature importances for all 3 winning models
+    def extract_importance(pipeline, step_name):
+        try:
+            preprocessor = pipeline.named_steps['preprocessor']
+            feature_names = list(preprocessor.get_feature_names_out())
+        except Exception as e:
+            print(f"Error getting feature names: {e}")
+            return {}
+            
+        estimator = pipeline.named_steps.get(step_name)
+        if estimator is None:
+            return {}
+            
+        importances = None
+        if hasattr(estimator, 'feature_importances_'):
+            importances = list(estimator.feature_importances_)
+        elif hasattr(estimator, 'coef_'):
+            importances = list(np.abs(estimator.coef_))
+            
+        if not importances or len(importances) != len(feature_names):
+            return {}
+            
+        feat_imp = {name: float(imp) for name, imp in zip(feature_names, importances)}
+        
+        # Group one-hot encoded features back to bases
+        grouped = {}
+        for name, imp in feat_imp.items():
+            clean_name = name.replace("cat__", "").replace("num__", "")
+            base_name = clean_name
+            for orig in ['event_cause_clean', 'event_type', 'police_station_clean', 'corridor_clean']:
+                if clean_name.startswith(orig):
+                    base_name = orig
+                    break
+            grouped[base_name] = grouped.get(base_name, 0.0) + imp
+            
+        total = sum(grouped.values()) or 1.0
+        grouped_norm = {k: round(v / total, 4) for k, v in grouped.items()}
+        sorted_imp = sorted(grouped_norm.items(), key=lambda x: x[1], reverse=True)
+        return {k: v for k, v in sorted_imp}
+
+    importance_data = {
+        "duration_model": extract_importance(best_dur_pipeline, 'regressor'),
+        "priority_model": extract_importance(best_clf_pipeline, 'classifier'),
+        "closure_model": extract_importance(best_close_pipeline, 'classifier')
+    }
+    
+    importance_path = get_path("backend/artifacts/feature_importance.json")
+    os.makedirs(os.path.dirname(importance_path), exist_ok=True)
+    with open(importance_path, 'w', encoding='utf-8') as f:
+        json.dump(importance_data, f, indent=2)
+    print(f"Feature importances saved to: {importance_path}")
 
     # Save results profile metadata
     results_path = get_path("backend/artifacts/model_comparison_results.json")

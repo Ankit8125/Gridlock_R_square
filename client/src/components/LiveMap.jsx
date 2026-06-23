@@ -7,12 +7,15 @@ const API_BASE = import.meta.env.VITE_API_BASE ||
     ? "http://127.0.0.1:8000/api" 
     : "/api");
 
-export default function LiveMap({ junctions }) {
+export default function LiveMap({ junctions, lightMode }) {
   const [hotspots, setHotspots] = useState([]);
   const [surgeAlerts, setSurgeAlerts] = useState([]);
   const [showTrafficHeatmap, setShowTrafficHeatmap] = useState(true);
+  const [showHotspots, setShowHotspots] = useState(true);
+  
   const liveMapRef = useRef(null);
   const liveHeatmapLayersRef = useRef([]);
+  const liveHotspotLayersRef = useRef([]);
 
   // Fetch hotspots + surge alerts on mount
   useEffect(() => {
@@ -41,7 +44,12 @@ export default function LiveMap({ junctions }) {
     const map = L.map('live-map').setView([12.978, 77.599], 12);
     liveMapRef.current = map;
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    // CartoDB tile URLs based on light/dark mode
+    const tileUrl = lightMode
+      ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+
+    L.tileLayer(tileUrl, {
       attribution: '©OpenStreetMap ©CartoDB',
       maxZoom: 19
     }).addTo(map);
@@ -68,6 +76,38 @@ export default function LiveMap({ junctions }) {
         Incidents: ${j.incident_count}<br/>
         Avg Resolution: ${Math.round(j.avg_duration)} mins
       `);
+    });
+
+    // Plot DBSCAN clustered hotspots as dashed zones
+    hotspots.forEach(h => {
+      if (!h.lat || !h.lon) return;
+      const rs = h.risk_score || 0;
+      const color = rs >= 70 ? '#ef4444' : rs >= 45 ? '#f97316' : '#6366f1';
+      const radius = Math.max(10, Math.min(30, 8 + (h.incident_count * 1.5)));
+
+      const marker = L.circleMarker([h.lat, h.lon], {
+        radius,
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.35,
+        weight: 2,
+        dashArray: '4, 4'
+      })
+      .bindPopup(`
+        <strong style="font-size:13px; color: ${color}">🔥 DBSCAN Hotspot Zone</strong><br/>
+        <b>${h.police_station_clean}</b><br/>
+        Risk Score: <strong style="color: ${color}">${rs}</strong><br/>
+        Coordinates: <b>${h.lat.toFixed(4)}, ${h.lon.toFixed(4)}</b><br/>
+        Incidents Count: <strong>${h.incident_count} events</strong><br/>
+        Dominant Cause: <strong>${h.dominant_cause}</strong><br/>
+        Avg Duration: <strong>${Math.round(h.avg_duration)} mins</strong>
+      `);
+
+      // Add to map only if showHotspots is true initially
+      if (showHotspots) {
+        marker.addTo(map);
+      }
+      liveHotspotLayersRef.current.push(marker);
     });
 
     // Data-driven Traffic Congestion Heatmap — radius and color based on REAL vulnerability_score
@@ -107,7 +147,8 @@ export default function LiveMap({ junctions }) {
         liveMapRef.current = null;
       }
     };
-  }, [junctions]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [junctions, hotspots, lightMode]);
 
   // Handle toggling of live traffic heatmap layers
   useEffect(() => {
@@ -121,6 +162,20 @@ export default function LiveMap({ junctions }) {
       }
     });
   }, [showTrafficHeatmap]);
+
+  // Handle toggling of DBSCAN hotspots layers
+  useEffect(() => {
+    if (!liveMapRef.current) return;
+
+    liveHotspotLayersRef.current.forEach(layer => {
+      if (showHotspots) {
+        layer.addTo(liveMapRef.current);
+      } else {
+        liveMapRef.current.removeLayer(layer);
+      }
+    });
+  }, [showHotspots]);
+
 
   const getSeverityColor = (sev) => {
     if (sev === 'Critical') return '#ef4444';
@@ -151,6 +206,18 @@ export default function LiveMap({ junctions }) {
           >
             {showTrafficHeatmap ? '🔥 Hide Heatmap' : '🔥 Show Heatmap'}
           </button>
+          <button
+            onClick={() => setShowHotspots(!showHotspots)}
+            style={{
+              padding: '6px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+              background: showHotspots ? 'var(--primary)' : 'var(--card-bg)',
+              color: showHotspots ? '#fff' : 'var(--text-primary)', fontSize: '12px', fontWeight: '600',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid var(--border-color)'
+            }}
+          >
+            {showHotspots ? '🎯 Hide Hotspots' : '🎯 Show Hotspots'}
+          </button>
         </div>
 
         {/* Legend */}
@@ -167,6 +234,19 @@ export default function LiveMap({ junctions }) {
               <span>{l}</span>
             </div>
           ))}
+          <div style={{ fontWeight: '700', marginTop: '8px', marginBottom: '4px', color: 'var(--primary)' }}>DBSCAN Hotspots (Dashed)</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', border: '2.5px dashed #ef4444', background: 'rgba(239,68,68,0.25)' }} />
+            <span>Critical (Score ≥ 70)</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', border: '2.5px dashed #f97316', background: 'rgba(249,115,22,0.25)' }} />
+            <span>High (Score 45–69)</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', border: '2.5px dashed #6366f1', background: 'rgba(99,102,241,0.25)' }} />
+             <span>Moderate (Score &lt; 45)</span>
+          </div>
         </div>
       </div>
 
@@ -211,16 +291,16 @@ export default function LiveMap({ junctions }) {
           )}
         </div>
 
-        {/* Top Hotspots (Police Stations) */}
+        {/* Top Hotspots (DBSCAN Clustered) */}
         <div style={{
           background: 'var(--panel-bg)', border: '1px solid var(--border-color)',
           borderRadius: '12px', padding: '1rem', flex: 1
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
             <Activity size={16} color="var(--primary)" />
-            <span style={{ fontWeight: '700', color: 'var(--primary)', fontSize: '13px' }}>STATION RISK RANKING</span>
+            <span style={{ fontWeight: '700', color: 'var(--primary)', fontSize: '13px' }}>DBSCAN HOTSPOT RANKING</span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '280px', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
             {hotspots.slice(0, 12).map((h, i) => {
               const rs = h.risk_score || 0;
               const barColor = rs >= 70 ? '#ef4444' : rs >= 45 ? '#f97316' : '#6366f1';
@@ -228,8 +308,11 @@ export default function LiveMap({ junctions }) {
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '10px', color: 'var(--text-secondary)', width: '16px', textAlign: 'right' }}>{i + 1}</span>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '11px', color: 'var(--text-primary)', fontWeight: '600', marginBottom: '2px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-primary)', fontWeight: '600', marginBottom: '1px' }}>
                       {h.police_station_clean}
+                    </div>
+                    <div style={{ fontSize: '9px', color: 'var(--text-secondary)', marginBottom: '3px' }}>
+                      [{h.lat?.toFixed(3)}, {h.lon?.toFixed(3)}] • Dominant Cause: {h.dominant_cause}
                     </div>
                     <div style={{ height: '4px', background: 'var(--border-color)', borderRadius: '2px' }}>
                       <div style={{ height: '4px', borderRadius: '2px', width: `${rs}%`, background: barColor, transition: 'width 0.5s ease' }} />
