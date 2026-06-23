@@ -75,10 +75,12 @@ export default function AppTour({ forceOpen, onClose, onNavigate }) {
   useEffect(() => {
     const done = localStorage.getItem(TOUR_KEY);
     if (!done || forceOpen) {
-      setVisible(true);
+      // Eagerly switch to command tab before anything else so DOM elements exist
+      if (onNavigate) onNavigate('command');
       setStep(0);
+      setVisible(true);
     }
-  }, [forceOpen]);
+  }, [forceOpen]); // eslint-disable-line
 
   const currentStep = STEPS[step];
 
@@ -171,7 +173,7 @@ export default function AppTour({ forceOpen, onClose, onNavigate }) {
     <>
       {/* ── Backdrop / Spotlight ─────────────────────────────── */}
       <div className="tour-backdrop">
-        {posReady && spotRect ? (
+        {spotRect ? (
           <svg
             style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10000 }}
           >
@@ -185,6 +187,7 @@ export default function AppTour({ forceOpen, onClose, onNavigate }) {
                   height={spotRect.height + PAD * 2}
                   rx="10"
                   fill="black"
+                  style={{ transition: 'all 0.3s cubic-bezier(0.16,1,0.3,1)' }}
                 />
               </mask>
             </defs>
@@ -199,6 +202,7 @@ export default function AppTour({ forceOpen, onClose, onNavigate }) {
               fill="none"
               stroke="rgba(59,130,246,0.8)"
               strokeWidth="2"
+              style={{ transition: 'all 0.3s cubic-bezier(0.16,1,0.3,1)' }}
             />
           </svg>
         ) : (
@@ -216,8 +220,8 @@ export default function AppTour({ forceOpen, onClose, onNavigate }) {
           left: tipPos.left,
           zIndex: 10001,
           // smooth slide between positions
-          transition: posReady ? 'top 0.3s cubic-bezier(0.16,1,0.3,1), left 0.3s cubic-bezier(0.16,1,0.3,1), opacity 0.2s' : 'none',
-          opacity: posReady ? 1 : 0,
+          transition: 'top 0.3s cubic-bezier(0.16,1,0.3,1), left 0.3s cubic-bezier(0.16,1,0.3,1), opacity 0.2s',
+          opacity: 1,
         }}
       >
         {/* Header */}

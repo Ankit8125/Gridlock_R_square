@@ -362,7 +362,7 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
       {analyticsTab === 'overview' && (
         <>
           {/* KPIs */}
-          <div className="kpis-container">
+          <div className="kpis-container" id="analytics-overview-kpis">
             <div className="kpi-card">
               <div className="kpi-header"><span>Total Logged Incidents</span><Database size={16} className="text-secondary" /></div>
               <div className="kpi-value">{analytics.kpis.total_events}</div>
@@ -386,7 +386,7 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
           </div>
 
           {/* Charts Grid — consolidated */}
-          <div className="grid-2">
+          <div className="grid-2" id="analytics-charts-panel">
 
             {/* LEFT: bar + doughnut stacked in one panel */}
             <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -444,8 +444,9 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
       {/* ══════════════════════════════════════════════════════ */}
       {analyticsTab === 'trends' && (
         <>
-          {/* Monthly Seasonal Trend */}
-          <div className="panel">
+          <div className="grid-2">
+            {/* Monthly Seasonal Trend */}
+            <div className="panel">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '8px' }}>
               <h2 className="panel-title" style={{ margin: 0 }}>Monthly Incident Trend — Seasonal Analysis</h2>
               <div style={{ display: 'flex', gap: '14px', fontSize: '11px', color: 'var(--text-secondary)' }}>
@@ -499,6 +500,7 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
                 <span>High</span>
               </div>
             </div>
+          </div>
           </div>
 
           {/* Venue Recurrence */}
@@ -648,12 +650,13 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
             </div>
           </div>
 
-          {/* Correlation Matrix */}
-          <CorrelationGrid correlationData={correlationData} />
+          <div className="grid-2">
+            {/* Correlation Matrix */}
+            <CorrelationGrid correlationData={correlationData} />
 
           {/* ML Feature Importance (XAI) Panel */}
           {diagnostics && diagnostics.feature_importances && (
-            <div className="panel" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
+            <div className="panel" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
                 <div>
                   <h2 className="panel-title" style={{ marginBottom: '0.25rem' }}>Explainable AI (XAI) — ML Model Feature Weights</h2>
@@ -674,11 +677,12 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
                   </select>
                 </div>
               </div>
-              <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', background: 'var(--terminal-bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <canvas id="featureImportanceChart" height="220" />
+              <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', background: 'var(--terminal-bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <canvas id="featureImportanceChart" style={{ maxHeight: '100%' }} />
               </div>
             </div>
           )}
+          </div>
         </>
       )}
     </div>

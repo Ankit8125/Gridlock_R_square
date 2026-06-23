@@ -11,8 +11,11 @@ export default function LiveMap({ junctions, lightMode }) {
   const [hotspots, setHotspots] = useState([]);
   const [surgeAlerts, setSurgeAlerts] = useState([]);
   const [showTrafficHeatmap, setShowTrafficHeatmap] = useState(true);
+  const [showHotspots, setShowHotspots] = useState(true);
+  
   const liveMapRef = useRef(null);
   const liveHeatmapLayersRef = useRef([]);
+  const liveHotspotLayersRef = useRef([]);
 
   // Fetch hotspots + surge alerts on mount
   useEffect(() => {
@@ -82,7 +85,7 @@ export default function LiveMap({ junctions, lightMode }) {
       const color = rs >= 70 ? '#ef4444' : rs >= 45 ? '#f97316' : '#6366f1';
       const radius = Math.max(10, Math.min(30, 8 + (h.incident_count * 1.5)));
 
-      L.circleMarker([h.lat, h.lon], {
+      const marker = L.circleMarker([h.lat, h.lon], {
         radius,
         color: color,
         fillColor: color,
@@ -90,7 +93,6 @@ export default function LiveMap({ junctions, lightMode }) {
         weight: 2,
         dashArray: '4, 4'
       })
-      .addTo(map)
       .bindPopup(`
         <strong style="font-size:13px; color: ${color}">🔥 DBSCAN Hotspot Zone</strong><br/>
         <b>${h.police_station_clean}</b><br/>
@@ -100,6 +102,12 @@ export default function LiveMap({ junctions, lightMode }) {
         Dominant Cause: <strong>${h.dominant_cause}</strong><br/>
         Avg Duration: <strong>${Math.round(h.avg_duration)} mins</strong>
       `);
+
+      // Add to map only if showHotspots is true initially
+      if (showHotspots) {
+        marker.addTo(map);
+      }
+      liveHotspotLayersRef.current.push(marker);
     });
 
     // Data-driven Traffic Congestion Heatmap — radius and color based on REAL vulnerability_score
@@ -139,6 +147,7 @@ export default function LiveMap({ junctions, lightMode }) {
         liveMapRef.current = null;
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [junctions, hotspots, lightMode]);
 
   // Handle toggling of live traffic heatmap layers
@@ -153,6 +162,20 @@ export default function LiveMap({ junctions, lightMode }) {
       }
     });
   }, [showTrafficHeatmap]);
+
+  // Handle toggling of DBSCAN hotspots layers
+  useEffect(() => {
+    if (!liveMapRef.current) return;
+
+    liveHotspotLayersRef.current.forEach(layer => {
+      if (showHotspots) {
+        layer.addTo(liveMapRef.current);
+      } else {
+        liveMapRef.current.removeLayer(layer);
+      }
+    });
+  }, [showHotspots]);
+
 
   const getSeverityColor = (sev) => {
     if (sev === 'Critical') return '#ef4444';
@@ -182,6 +205,18 @@ export default function LiveMap({ junctions, lightMode }) {
             }}
           >
             {showTrafficHeatmap ? '🔥 Hide Heatmap' : '🔥 Show Heatmap'}
+          </button>
+          <button
+            onClick={() => setShowHotspots(!showHotspots)}
+            style={{
+              padding: '6px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+              background: showHotspots ? 'var(--primary)' : 'var(--card-bg)',
+              color: showHotspots ? '#fff' : 'var(--text-primary)', fontSize: '12px', fontWeight: '600',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid var(--border-color)'
+            }}
+          >
+            {showHotspots ? '🎯 Hide Hotspots' : '🎯 Show Hotspots'}
           </button>
         </div>
 
