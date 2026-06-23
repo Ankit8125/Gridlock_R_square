@@ -185,7 +185,7 @@ function App() {
           <ForecastPlanner />
         )}
         {activeTab === 'live' && (
-          <LiveMap junctions={junctions} />
+          <LiveMap junctions={junctions} lightMode={lightMode} />
         )}
         {activeTab === 'learning' && (
           <FeedbackLog />

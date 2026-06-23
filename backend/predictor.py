@@ -103,18 +103,8 @@ class EventPredictor:
                 
             self.junctions = junc_stats.to_dict(orient='records')
             
-            # 2. Hotspots (Police Stations) Risk Score
-            hotspots_df = self.df.groupby('police_station_clean').agg(
-                incident_count=('id', 'count'),
-                avg_duration=('duration', lambda x: float(x[x >= 0].mean()) if not x[x >= 0].empty else 64.5),
-                road_closure_rate=('requires_road_closure', lambda x: float(x.mean() * 100) if len(x) > 0 else 0.0),
-                high_priority_rate=('priority_clean', lambda x: float((x == 'high').mean() * 100) if len(x) > 0 else 0.0)
-            ).reset_index()
-            max_inc = hotspots_df['incident_count'].max() or 1
-            hotspots_df['risk_score'] = ((hotspots_df['incident_count'] / max_inc) * 50 + 
-                                         (hotspots_df['road_closure_rate'] / 100) * 30 + 
-                                         (hotspots_df['high_priority_rate'] / 100) * 20).round(1)
-            self.hotspots = hotspots_df.sort_values(by='incident_count', ascending=False).to_dict(orient='records')
+            # 2. Hotspots (DBSCAN Spatial Hotspot Clustering) Risk Score
+            self.hotspots = self.compute_dbscan_hotspots()
             
             # 3. Corridor Risks Risk Score
             corridors_df = self.df.groupby('corridor_clean').agg(
@@ -139,11 +129,6 @@ class EventPredictor:
                 for _, row in station_latlon.iterrows()
                 if pd.notnull(row['lat']) and pd.notnull(row['lon'])
             }
-            # Attach lat/lon to hotspots records
-            for hs in self.hotspots:
-                ps = hs.get('police_station_clean', '')
-                if ps in self._station_latlon:
-                    hs['lat'], hs['lon'] = self._station_latlon[ps]
 
             # 5. Venue Recurrence — locations that repeatedly generate incidents
             venue_df = self.df.dropna(subset=['latitude', 'longitude']).copy()
@@ -184,6 +169,91 @@ class EventPredictor:
             self.venue_recurrence = []
             self.weekly_heatmap = []
             self.surge_alerts = []
+
+    def compute_dbscan_hotspots(self):
+        """Compute spatial hotspots using DBSCAN clustering of historical incident coordinates."""
+        if self.df is None or self.df.empty:
+            return []
+        
+        # Filter rows with valid coordinates
+        coords_df = self.df.dropna(subset=['latitude', 'longitude']).copy()
+        if coords_df.empty:
+            return []
+        
+        from sklearn.cluster import DBSCAN
+        
+        # Run DBSCAN
+        db = DBSCAN(eps=0.002, min_samples=3).fit(coords_df[['latitude', 'longitude']])
+        coords_df['cluster'] = db.labels_
+        
+        # Filter noise (label == -1)
+        clusters_df = coords_df[coords_df['cluster'] != -1]
+        if clusters_df.empty:
+            return []
+            
+        # Group by cluster
+        hotspots = []
+        grouped = clusters_df.groupby('cluster')
+        
+        for cluster_id, group in grouped:
+            lat = float(group['latitude'].mean())
+            lon = float(group['longitude'].mean())
+            incident_count = int(group.shape[0])
+            avg_duration = float(group['duration'].mean()) if not group['duration'].empty else 64.5
+            
+            # Dominant police station clean
+            dominant_station = 'unknown'
+            if 'police_station_clean' in group.columns and not group['police_station_clean'].isnull().all():
+                dominant_station = str(group['police_station_clean'].mode()[0])
+            
+            # Dominant event cause
+            dominant_cause = 'unknown'
+            if 'event_cause_clean' in group.columns and not group['event_cause_clean'].isnull().all():
+                dominant_cause = str(group['event_cause_clean'].mode()[0])
+            elif 'event_cause' in group.columns and not group['event_cause'].isnull().all():
+                dominant_cause = str(group['event_cause'].mode()[0])
+                
+            # Road closure rate
+            road_closure_rate = 0.0
+            if 'requires_road_closure' in group.columns:
+                road_closure_rate = float(group['requires_road_closure'].mean() * 100)
+                
+            # High priority rate
+            high_priority_rate = 0.0
+            if 'priority_clean' in group.columns:
+                high_priority_rate = float((group['priority_clean'] == 'high').mean() * 100)
+            elif 'priority' in group.columns:
+                high_priority_rate = float((group['priority'] == 'high').mean() * 100)
+                
+            display_name = f"Zone near {dominant_station.title()}"
+            
+            hotspots.append({
+                'cluster_id': int(cluster_id),
+                'police_station_clean': display_name,
+                'dominant_station': dominant_station,
+                'dominant_cause': dominant_cause,
+                'lat': lat,
+                'lon': lon,
+                'incident_count': incident_count,
+                'avg_duration': avg_duration,
+                'road_closure_rate': road_closure_rate,
+                'high_priority_rate': high_priority_rate
+            })
+            
+        # Calculate risk scores
+        if hotspots:
+            max_inc = max(h['incident_count'] for h in hotspots) or 1
+            for h in hotspots:
+                h['risk_score'] = round(
+                    (h['incident_count'] / max_inc) * 50 +
+                    (h['road_closure_rate'] / 100) * 30 +
+                    (h['high_priority_rate'] / 100) * 20,
+                    1
+                )
+            
+            hotspots.sort(key=lambda x: x['risk_score'], reverse=True)
+            
+        return hotspots
 
     def load_adjustments(self):
         self.multipliers = {
