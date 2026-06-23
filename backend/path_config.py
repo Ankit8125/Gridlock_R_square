@@ -48,7 +48,8 @@ def initialize_writable_filesystem():
     # 3. Copy artifacts
     artifacts = [
         "cleaned_events.csv", "dataset_profile.json", "model_comparison_results.json",
-        "policy_adjustments.json", "text_enrichment.json", "competitor_analysis_report.json"
+        "policy_adjustments.json", "text_enrichment.json", "competitor_analysis_report.json",
+        "feature_importance.json"
     ]
     for art in artifacts:
         src = os.path.join(BACKEND_DIR, "artifacts", art)
