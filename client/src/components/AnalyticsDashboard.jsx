@@ -218,7 +218,7 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
       if (hourChartRef.current) hourChartRef.current.destroy();
       if (vehChartRef.current) vehChartRef.current.destroy();
     };
-  }, [analytics]);
+  }, [analytics, analyticsTab]);
 
   // Monthly chart
   useEffect(() => {
@@ -255,7 +255,7 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
       });
     }
     return () => { if (monthChartRef.current) monthChartRef.current.destroy(); };
-  }, [monthlyData, analytics]);
+  }, [monthlyData, analytics, analyticsTab]);
 
   // 5. Explainable AI Feature Importance Chart
   useEffect(() => {
@@ -315,7 +315,7 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
         featureImportanceChartRef.current.destroy();
       }
     };
-  }, [diagnostics, selectedModelXai]);
+  }, [diagnostics, selectedModelXai, analyticsTab]);
 
   // Compute weekly heatmap grid max for normalization
   const weeklyMax = weeklyHeatmap.reduce((mx, cell) => Math.max(mx, cell.count), 1);
