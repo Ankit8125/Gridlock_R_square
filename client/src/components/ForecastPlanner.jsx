@@ -584,7 +584,7 @@ export default function ForecastPlanner() {
                 </div>
                 {prediction.impact.explanations?.length > 0 && (
                   <ul className="reason-list">
-                    {prediction.impact.explanations.slice(0, 4).map((reason, index) => (
+                    {prediction.impact?.explanations?.slice(0, 4).map((reason, index) => (
                       <li key={index}>{reason}</li>
                     ))}
                   </ul>
@@ -665,7 +665,7 @@ export default function ForecastPlanner() {
                   <Users size={14} color="#10b981" />
                   Station Deployment Allocation
                 </div>
-                {prediction.resources.station_allocations.map((alloc, i) => (
+                {prediction.resources?.station_allocations?.map((alloc, i) => (
                   <div key={i} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '8px 12px', marginBottom: '6px',
@@ -791,7 +791,7 @@ export default function ForecastPlanner() {
                   {prediction.diversion_plan.summary || "No summary provided."}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {Array.isArray(prediction.diversion_plan.steps) && prediction.diversion_plan.steps.map((step, i) => (
+                  {Array.isArray(prediction.diversion_plan?.steps) && prediction.diversion_plan.steps.map((step, i) => (
                     <div key={i} style={{
                       fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--nav-bg)',
                       padding: '6px 10px', borderRadius: '6px', borderLeft: '3px solid var(--primary)'
@@ -818,7 +818,7 @@ export default function ForecastPlanner() {
                     </tr>
                   </thead>
                   <tbody>
-                    {prediction.nearest_junction_checkpoints.map((j, i) => (
+                    {prediction.nearest_junction_checkpoints?.map((j, i) => (
                       <tr key={i}>
                         <td style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>{j.name}</td>
                         <td>{j.distance_meters} m</td>
@@ -838,7 +838,7 @@ export default function ForecastPlanner() {
             </div>
 
             {/* Similar historical events */}
-            {prediction.similar_historical_events.length > 0 && (
+            {prediction.similar_historical_events?.length > 0 && (
               <div className="result-card" style={{ marginTop: '1rem' }}>
                 <div className="panel-title" style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>Comparable Historical Cases</div>
                 <div className="table-wrapper">
@@ -851,7 +851,7 @@ export default function ForecastPlanner() {
                       </tr>
                     </thead>
                     <tbody>
-                      {prediction.similar_historical_events.slice(0, 3).map((item, i) => (
+                      {prediction.similar_historical_events?.slice(0, 3).map((item, i) => (
                         <tr key={i}>
                           <td style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.address}</td>
                           <td style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description}</td>
