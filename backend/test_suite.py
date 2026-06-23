@@ -153,11 +153,14 @@ class TestBackendAPI(unittest.TestCase):
             data = json.loads(response.read().decode('utf-8'))
             self.assertIn("hotspots", data)
             self.assertGreater(len(data["hotspots"]), 0)
-            # Verify required fields in hotspots output
+            # Verify required fields in hotspots output (DBSCAN structures)
             first_hs = data["hotspots"][0]
             self.assertIn("police_station_clean", first_hs)
             self.assertIn("incident_count", first_hs)
             self.assertIn("risk_score", first_hs)
+            self.assertIn("dominant_cause", first_hs)
+            self.assertIn("lat", first_hs)
+            self.assertIn("lon", first_hs)
 
     def test_10_corridor_risk(self):
         print("Testing /api/corridor-risk...")
@@ -235,6 +238,9 @@ class TestBackendAPI(unittest.TestCase):
             self.assertEqual(response.status, 200)
             data = json.loads(response.read().decode('utf-8'))
             self.assertTrue(isinstance(data, dict))
+            self.assertIn("regression", data)
+            self.assertIn("feature_importances", data)
+            self.assertIn("duration_model", data["feature_importances"])
 
 if __name__ == "__main__":
     unittest.main()
