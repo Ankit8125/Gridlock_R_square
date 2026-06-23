@@ -364,6 +364,41 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
       {/* ══════════════════════════════════════════════════════ */}
       {analyticsTab === 'overview' && (
         <>
+          {/* Correlation Matrix & Explainable AI */}
+          <div className="grid-2" style={{ marginBottom: '1.25rem' }}>
+            {/* Correlation Matrix */}
+            <CorrelationGrid correlationData={correlationData} />
+
+            {/* ML Feature Importance (XAI) Panel */}
+            {diagnostics && diagnostics.feature_importances && (
+              <div className="panel" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+                  <div>
+                    <h2 className="panel-title" style={{ marginBottom: '0.25rem' }}>Explainable AI (XAI) — ML Model Feature Weights</h2>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      Normalized feature weights from the selected pre-trained Random Forest model.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Select Model:</span>
+                    <select
+                      value={selectedModelXai}
+                      onChange={(e) => setSelectedModelXai(e.target.value)}
+                      style={{ background: 'var(--form-control-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px 12px', fontSize: '0.85rem', fontWeight: '600', outline: 'none', cursor: 'pointer' }}
+                    >
+                      <option value="duration_model">Incident Duration Model (Regressor)</option>
+                      <option value="priority_model">Congestion Priority Model (Classifier)</option>
+                      <option value="closure_model">Road Closure Model (Classifier)</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', background: 'var(--terminal-bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <canvas id="featureImportanceChart" style={{ maxHeight: '100%' }} />
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* KPIs */}
           <div className="kpis-container" id="analytics-overview-kpis">
             <div className="kpi-card">
@@ -491,43 +526,6 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
                 Cascade risk = f(overlap duration, road closure count). Score ≥7 = High · ≥4 = Medium · &lt;4 = Low.
               </p>
             </div>
-          )}
-
-          {/* Correlation Matrix & Explainable AI */}
-          <div className="grid-2">
-            {/* Correlation Matrix */}
-            <CorrelationGrid correlationData={correlationData} />
-
-            {/* ML Feature Importance (XAI) Panel */}
-            {diagnostics && diagnostics.feature_importances && (
-              <div className="panel" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
-                  <div>
-                    <h2 className="panel-title" style={{ marginBottom: '0.25rem' }}>Explainable AI (XAI) — ML Model Feature Weights</h2>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      Normalized feature weights from the selected pre-trained Random Forest model.
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Select Model:</span>
-                    <select
-                      value={selectedModelXai}
-                      onChange={(e) => setSelectedModelXai(e.target.value)}
-                      style={{ background: 'var(--form-control-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px 12px', fontSize: '0.85rem', fontWeight: '600', outline: 'none', cursor: 'pointer' }}
-                    >
-                      <option value="duration_model">Incident Duration Model (Regressor)</option>
-                      <option value="priority_model">Congestion Priority Model (Classifier)</option>
-                      <option value="closure_model">Road Closure Model (Classifier)</option>
-                    </select>
-                  </div>
-                </div>
-                <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', background: 'var(--terminal-bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <canvas id="featureImportanceChart" style={{ maxHeight: '100%' }} />
-                </div>
-              </div>
-            )}
-          </div>
-
         </>
       )}
 
