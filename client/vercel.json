@@ -1,6 +1,9 @@
 {
   "name": "gridlock-client",
   "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
   "cleanUrls": true,
   "routes": [
     {
