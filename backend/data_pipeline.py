@@ -71,9 +71,15 @@ def clean_and_preprocess_data(csv_path):
     df['start_ist'] = df['start'].dt.tz_convert('Asia/Kolkata')
     
     # Extract local hour, day of week
-    df['local_hour'] = df['start_ist'].dt.hour
-    df['local_day_of_week'] = df['start_ist'].dt.dayofweek
-    df['local_month'] = df['start_ist'].dt.month
+    df['local_hour'] = df['start_ist'].dt.hour.fillna(0).astype(int)
+    df['local_day_of_week'] = df['start_ist'].dt.dayofweek.fillna(0).astype(int)
+    df['local_month'] = df['start_ist'].dt.month.fillna(1).astype(int)
+    
+    # Cyclical temporal features
+    df['local_hour_sin'] = np.sin(2 * np.pi * df['local_hour'] / 24.0)
+    df['local_hour_cos'] = np.cos(2 * np.pi * df['local_hour'] / 24.0)
+    df['local_day_sin'] = np.sin(2 * np.pi * df['local_day_of_week'] / 7.0)
+    df['local_day_cos'] = np.cos(2 * np.pi * df['local_day_of_week'] / 7.0)
     
     # Peak hours: 8:00 AM - 11:59 AM, and 5:00 PM - 8:59 PM IST
     df['is_peak_hour'] = df['local_hour'].apply(

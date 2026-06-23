@@ -702,6 +702,14 @@ class EventPredictor:
             }
         is_raining = weather["is_raining"]
 
+        # Calculate cyclical time features
+        hour_val = int(hour)
+        day_val = int(day_of_week)
+        hour_sin = np.sin(2 * np.pi * hour_val / 24.0)
+        hour_cos = np.cos(2 * np.pi * hour_val / 24.0)
+        day_sin = np.sin(2 * np.pi * day_val / 7.0)
+        day_cos = np.cos(2 * np.pi * day_val / 7.0)
+
         # Construct input DataFrame for ML models
         input_data = pd.DataFrame([{
             'event_cause_clean': cause_clean,
@@ -711,8 +719,10 @@ class EventPredictor:
             'police_station_clean': 'unknown',
             'corridor_clean': corridor_clean,
             'is_peak_hour': is_peak_hour,
-            'local_hour': int(hour),
-            'local_day_of_week': int(day_of_week)
+            'local_hour_sin': hour_sin,
+            'local_hour_cos': hour_cos,
+            'local_day_sin': day_sin,
+            'local_day_cos': day_cos
         }])
 
         # Determine prediction route based on class volume
@@ -734,7 +744,8 @@ class EventPredictor:
             if self.priority_model:
                 clf_features = [
                     'event_cause_clean', 'event_type', 'latitude', 'longitude', 
-                    'police_station_clean', 'is_peak_hour', 'local_hour', 'local_day_of_week'
+                    'police_station_clean', 'is_peak_hour',
+                    'local_hour_sin', 'local_hour_cos', 'local_day_sin', 'local_day_cos'
                 ]
                 input_data_clf = input_data[clf_features]
                 predicted_priority = str(self.priority_model.predict(input_data_clf)[0]).lower()
