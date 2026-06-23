@@ -1,5 +1,5 @@
 # ASTRAM Obstruction & Event Intelligence Dashboard
-
+ 
 An AI-powered forecasting, routing, and resource-planning platform built for Bengaluru Traffic Police. By analyzing historical event and obstruction logs, the system predicts incident duration and congestion priority, generates optimal manpower and barricade allocations, maps alternate routes via OSRM detours, and integrates a post-event learning loop to continuously adapt recommendations based on field feedback.
 
 ---
