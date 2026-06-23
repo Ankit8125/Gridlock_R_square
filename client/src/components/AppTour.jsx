@@ -60,6 +60,15 @@ const STEPS = [
     body: 'Deep-dive into historical data with three focused views: Overview for distributions, Trends for seasonal & hourly heatmaps, and Model Health for diagnostics, XAI feature weights, and retraining.',
     tip: 'Upload new CSV event data in Model Health → Retrain to improve predictions.',
   },
+  {
+    id: 'learning',
+    tab: null,
+    target: 'tab-learning', // always-visible nav button
+    icon: <Bot size={26} color="#14b8a6" />,
+    title: 'Post-Event Log',
+    body: 'A centralized repository of historical field actions and feedback. Reviews past dispatch recommendations alongside officer corrections to continually align ASTRAM models with real-world traffic ops.',
+    tip: 'Click any log entry to see exactly how the AI predicted the duration compared to the actual closure time.',
+  },
 ];
 
 export default function AppTour({ forceOpen, onClose, onNavigate }) {
@@ -123,15 +132,25 @@ export default function AppTour({ forceOpen, onClose, onNavigate }) {
 
       // Choose tooltip placement
       const spaceBelow = window.innerHeight - r.bottom;
-      const placement = spaceBelow >= 260 ? 'below' : 'above';
+      
+      // Get exact tooltip dimensions if available
+      let tipH = 260;
+      if (tooltipRef.current) {
+        tipH = tooltipRef.current.getBoundingClientRect().height;
+      }
+      
+      const placement = spaceBelow >= tipH ? 'below' : 'above';
 
       const tipW = 360;
       const rawLeft = r.left + r.width / 2 - tipW / 2;
       const left = Math.max(12, Math.min(rawLeft, window.innerWidth - tipW - 12));
 
-      const top = placement === 'below'
+      let top = placement === 'below'
         ? r.bottom + PAD + 10
-        : r.top - PAD - 260; // approximate tooltip height
+        : r.top - PAD - tipH; 
+        
+      // Clamp vertically to keep inside window viewport
+      top = Math.max(12, Math.min(top, window.innerHeight - tipH - 12));
 
       setTipPos({ top, left, placement });
       setPosReady(true);
