@@ -393,7 +393,7 @@ body {
 }
 
 .resource-item {
-  background: rgba(30, 41, 59, 0.4);
+  background: var(--nav-bg);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 1rem;
@@ -531,7 +531,7 @@ tr:hover td {
 }
 
 .hotspot-item {
-  background: rgba(30, 41, 59, 0.35);
+  background: var(--kpi-bg);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 0.75rem 1rem;
@@ -543,7 +543,7 @@ tr:hover td {
 }
 
 .hotspot-item:hover {
-  background: rgba(30, 41, 59, 0.6);
+  background: var(--card-bg);
 }
 
 .hotspot-info {
