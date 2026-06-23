@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Chart } from 'chart.js/auto';
-import { Database, TrendingUp, Clock, Shield, MapPin, AlertTriangle } from 'lucide-react';
+import { Database, TrendingUp, Clock, Shield, MapPin, AlertTriangle, LayoutGrid, TrendingDown, Cpu } from 'lucide-react';
 import CorrelationGrid from './CorrelationGrid';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 
@@ -20,6 +20,9 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
   const [monthlyData, setMonthlyData] = useState([]);
   const [weeklyHeatmap, setWeeklyHeatmap] = useState([]);
   const [venueRecurrence, setVenueRecurrence] = useState([]);
+
+  // Internal sub-view pill nav
+  const [analyticsTab, setAnalyticsTab] = useState('overview');
 
   // CSV upload & model retraining states
   const [csvFile, setCsvFile] = useState(null);
@@ -331,355 +334,344 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
 
   if (!analytics) return <p>Loading analytics data...</p>;
 
+  const analyticsTabs = [
+    { id: 'overview', label: 'Overview', icon: <LayoutGrid size={14} /> },
+    { id: 'trends',   label: 'Trends',   icon: <TrendingDown size={14} /> },
+    { id: 'model',    label: 'Model Health', icon: <Cpu size={14} /> },
+  ];
+
   return (
     <>
-    <div>
-      {/* KPIs */}
-      <div className="kpis-container">
-        <div className="kpi-card">
-          <div className="kpi-header"><span>Total Logged Incidents</span><Database size={16} className="text-secondary" /></div>
-          <div className="kpi-value">{analytics.kpis.total_events}</div>
-          <div className="kpi-footer">ASTRAM historical database</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-header"><span>Planned Event Layers</span><TrendingUp size={16} className="text-secondary" /></div>
-          <div className="kpi-value">{analytics.kpis.planned_events}</div>
-          <div className="kpi-footer">Rallies, construction, matches</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-header"><span>Median Ticket Duration</span><Clock size={16} className="text-secondary" /></div>
-          <div className="kpi-value">{formatMinutes(analytics.kpis.median_duration_minutes)}</div>
-          <div className="kpi-footer">Excluding active & outlier tickets</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-header"><span>Requires Road Closure</span><Shield size={16} className="text-secondary" /></div>
-          <div className="kpi-value">{analytics.kpis.road_closure_percentage}%</div>
-          <div className="kpi-footer">Heavy diversion requirements</div>
-        </div>
+    <div id="tour-analytics">
+      {/* ── Analytics Pill Nav ─────────────────────────────── */}
+      <div className="analytics-pill-nav">
+        {analyticsTabs.map(t => (
+          <button
+            key={t.id}
+            className={`analytics-pill ${analyticsTab === t.id ? 'analytics-pill--active' : ''}`}
+            onClick={() => setAnalyticsTab(t.id)}
+          >
+            {t.icon} {t.label}
+          </button>
+        ))}
       </div>
 
-      {/* Retraining & Diagnostics Panel */}
-      <div className="grid-2" style={{ marginBottom: '2rem' }}>
-        {/* Upload Card */}
-        <div className="panel" style={{ marginBottom: 0 }}>
-          <h2 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
-            <Database size={18} color="var(--primary)" />
-            Retrain Models with Additional Data
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-            Upload raw ASTRAM event logs in CSV format. The pipeline will automatically clean features, resolve coordinates, handle peak hours, and train new champion models.
-          </p>
-          <form onSubmit={handleCSVUpload} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <input 
-                type="file" 
-                id="csv-file-input"
-                accept=".csv"
-                onChange={e => setCsvFile(e.target.files[0])}
-                disabled={uploading}
-                style={{
-                  background: 'var(--form-control-bg)',
-                  border: '1px dashed var(--border-color)',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  width: '100%',
-                  color: 'var(--text-primary)',
-                  fontSize: '0.85rem'
-                }}
-              />
+      {/* ══════════════════════════════════════════════════════ */}
+      {/* OVERVIEW sub-view                                      */}
+      {/* ══════════════════════════════════════════════════════ */}
+      {analyticsTab === 'overview' && (
+        <>
+          {/* KPIs */}
+          <div className="kpis-container">
+            <div className="kpi-card">
+              <div className="kpi-header"><span>Total Logged Incidents</span><Database size={16} className="text-secondary" /></div>
+              <div className="kpi-value">{analytics.kpis.total_events}</div>
+              <div className="kpi-footer">ASTRAM historical database</div>
             </div>
-            
-            {uploadMsg && (
-              <div style={{
-                fontSize: '11px',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                background: uploadSuccess ? 'rgba(16,185,129,0.08)' : 'rgba(99,102,241,0.08)',
-                border: `1px solid ${uploadSuccess ? 'rgba(16,185,129,0.2)' : 'rgba(99,102,241,0.2)'}`,
-                color: uploadSuccess ? 'var(--success)' : 'var(--text-primary)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}>
-                {uploading && <RefreshCw className="animate-spin" size={12} style={{ animation: 'spin 1.5s linear infinite' }} />}
-                <span>{uploadMsg}</span>
-              </div>
-            )}
-
-            <button type="submit" className="btn-primary" disabled={uploading} style={{ fontSize: '0.9rem', padding: '10px 16px' }}>
-              {uploading ? (
-                <>
-                  <RefreshCw className="animate-spin" size={14} style={{ animation: 'spin 1.5s linear infinite' }} />
-                  Processing & Retraining...
-                </>
-              ) : "Upload CSV & Retrain Model"}
-            </button>
-          </form>
-        </div>
-
-        {/* Model Diagnostics Card */}
-        <div className="panel" style={{ marginBottom: 0 }}>
-          <h2 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
-            <Shield size={18} color="var(--success)" />
-            Model Diagnostics & Evaluation
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-            Metrics evaluated on a temporal test split to verify out-of-sample generalization.
-          </p>
-          {diagnostics ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid var(--border-color)' }}>
-                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Duration Estimator (Regression)</span>
-                <span style={{ fontSize: '12px', fontWeight: 'bold' }}>
-                  MedAE: {formatMinutes(diagnostics.regression?.[0]?.test_median_error_minutes || 55.6)}
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid var(--border-color)' }}>
-                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Priority Escalation (Classification)</span>
-                <span style={{ fontSize: '12px', fontWeight: 'bold' }}>
-                  F1-Score: {Math.round((diagnostics.classification?.[0]?.test_f1_score || 1.0) * 100)}%
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid var(--border-color)' }}>
-                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Closure Forecaster (Barricading)</span>
-                <span style={{ fontSize: '12px', fontWeight: 'bold' }}>
-                  ROC-AUC: {Math.round((diagnostics.closure_classification?.[0]?.test_roc_auc || 0.811) * 1000) / 10}%
-                </span>
-              </div>
-              <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: '6px' }}>
-                * Model architecture: Optimized Random Forests & Gradient Boosting Classifiers.
-              </div>
+            <div className="kpi-card">
+              <div className="kpi-header"><span>Planned Event Records</span><TrendingUp size={16} className="text-secondary" /></div>
+              <div className="kpi-value">{analytics.kpis.planned_events}</div>
+              <div className="kpi-footer">Rallies, construction, matches</div>
             </div>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100px' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Loading evaluation metrics...</p>
+            <div className="kpi-card">
+              <div className="kpi-header"><span>Median Ticket Duration</span><Clock size={16} className="text-secondary" /></div>
+              <div className="kpi-value">{formatMinutes(analytics.kpis.median_duration_minutes)}</div>
+              <div className="kpi-footer">Excluding active &amp; outlier tickets</div>
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Monthly Seasonal Trend */}
-      <div className="panel">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '8px' }}>
-          <h2 className="panel-title" style={{ margin: 0 }}>Monthly Incident Trend — Seasonal Analysis</h2>
-          <div style={{ display: 'flex', gap: '14px', fontSize: '11px', color: 'var(--text-secondary)' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ width: 10, height: 10, background: 'rgba(99,102,241,0.7)', borderRadius: '2px', display: 'inline-block' }} />
-              Standard
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ width: 10, height: 10, background: 'rgba(59,130,246,0.7)', borderRadius: '2px', display: 'inline-block' }} />
-              Monsoon (Jun–Sep)
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ width: 10, height: 10, background: 'rgba(245,158,11,0.7)', borderRadius: '2px', display: 'inline-block' }} />
-              Festival (Oct–Nov)
-            </span>
+            <div className="kpi-card">
+              <div className="kpi-header"><span>Requires Road Closure</span><Shield size={16} className="text-secondary" /></div>
+              <div className="kpi-value">{analytics.kpis.road_closure_percentage}%</div>
+              <div className="kpi-footer">Heavy diversion requirements</div>
+            </div>
           </div>
-        </div>
-        <canvas id="monthChart" height="100" />
-      </div>
 
-      {/* Weekly Heatmap */}
-      <div className="panel">
-        <h2 className="panel-title" style={{ marginBottom: '1rem' }}>Weekly Incident Heatmap — Day × Hour (IST)</h2>
-        <div style={{ overflowX: 'auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: `50px repeat(24, 1fr)`, gap: '2px', minWidth: '700px' }}>
-            {/* Header row */}
-            <div style={{ fontSize: '10px', color: '#64748b' }}></div>
-            {Array.from({ length: 24 }, (_, h) => (
-              <div key={h} style={{ fontSize: '9px', color: '#64748b', textAlign: 'center', paddingBottom: '3px' }}>
-                {h}
-              </div>
-            ))}
-            {/* Day rows */}
-            {DAYS.map((day, d) => (
-              <React.Fragment key={d}>
-                <div style={{ fontSize: '10px', color: '#94a3b8', display: 'flex', alignItems: 'center', fontWeight: '600' }}>{day}</div>
-                {Array.from({ length: 24 }, (_, h) => {
-                  const count = getWeeklyCell(d, h);
-                  return (
-                    <div
-                      key={h}
-                      title={`${day} ${h}:00 — ${count} incidents`}
-                      style={{
-                        height: '18px', borderRadius: '2px',
-                        background: heatColor(count),
-                        cursor: 'default',
-                        transition: 'opacity 0.2s',
-                      }}
-                    />
-                  );
-                })}
-              </React.Fragment>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: '8px', marginTop: '8px', fontSize: '10px', color: '#94a3b8', justifyContent: 'flex-end', alignItems: 'center' }}>
-            <span>Low</span>
-            {['rgba(148, 163, 184, 0.12)', '#6366f1', '#f59e0b', '#f97316', '#ef4444'].map((c, i) => (
-              <div key={i} style={{ width: '14px', height: '14px', background: c, borderRadius: '2px' }} />
-            ))}
-            <span>High</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Venue Recurrence */}
-      <div className="panel">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
-          <MapPin size={16} color="#10b981" />
-          <h2 className="panel-title">Chronic Incident Venues — Recurrent Obstruction Hotspots</h2>
-        </div>
-        <div className="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Grid Location (lat,lon)</th>
-                <th>Incidents</th>
-                <th>Top Cause</th>
-                <th>Avg Duration</th>
-                <th>Road Closure %</th>
-                <th>Recurrence Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              {venueRecurrence.slice(0, 20).map((v, i) => {
-                const score = v.recurrence_score || 0;
-                const scoreColor = score >= 70 ? '#ef4444' : score >= 40 ? '#f97316' : '#6366f1';
-                return (
-                  <tr key={i}>
-                    <td style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>#{i + 1}</td>
-                    <td style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                      {Number(v.lat).toFixed(4)}, {Number(v.lon).toFixed(4)}
-                    </td>
-                    <td style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{v.incident_count}</td>
-                    <td style={{ textTransform: 'capitalize', color: 'var(--primary)', fontWeight: '600' }}>{String(v.top_cause).replace(/_/g, ' ')}</td>
-                    <td>{v.avg_duration ? formatMinutes(v.avg_duration) : '—'}</td>
-                    <td>{Number(v.road_closure_rate).toFixed(1)}%</td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <div style={{ flex: 1, height: '4px', background: 'var(--border-color)', borderRadius: '2px' }}>
-                          <div style={{ height: '4px', borderRadius: '2px', width: `${score}%`, background: scoreColor }} />
-                        </div>
-                        <span style={{ fontSize: '10px', color: scoreColor, fontWeight: '700', width: '28px' }}>{score}</span>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Data Scope note */}
-      <div className="panel">
-        <div className="panel-header">
-          <h2 className="panel-title">Data Scope & Model Tuning</h2>
-          <span className="badge badge-learned">Tuned Models Active</span>
-        </div>
-        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-          <p style={{ marginBottom: '0.5rem' }}>
-            <strong>Real-world Analysis Summary:</strong> Vehicle breakdowns dominate Bengaluru's traffic obstructions,
-            accounting for <strong>59.9% of all rows (4,896 incidents)</strong>. Genuinely planned events (VIP movement,
-            sports, public rallies) make up only <strong>1.8%</strong> of the dataset.
-          </p>
-          <p>
-            <strong>Duration Cap Heuristics & Model Tuning:</strong> Out of 8,173 events, only 3,192 rows (39%) have valid
-            completed durations. The pipeline drops negative entries and caps outlier durations at p90. The RandomForest
-            model is tuned with optimized hyperparameters (estimators=150, depth=12) for stable generalization.
-          </p>
-        </div>
-      </div>
-
-      {/* Correlation Matrix */}
-      <CorrelationGrid correlationData={correlationData} />
-
-      {/* ML Feature Importance (XAI) Panel */}
-      {diagnostics && diagnostics.feature_importances && (
-        <div className="panel" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
-            <div>
-              <h2 className="panel-title" style={{ marginBottom: '0.25rem' }}>Explainable AI (XAI) — ML Model Feature Weights</h2>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                This chart displays the normalized mathematical weight of each input feature in the selected pre-trained Random Forest model.
+          {/* Charts Grid */}
+          <div className="grid-2">
+            <div className="panel">
+              <h2 className="panel-title" style={{ marginBottom: '1rem' }}>Incidents by Cause</h2>
+              <canvas id="causeChart" height="200" />
+            </div>
+            <div className="panel">
+              <h2 className="panel-title" style={{ marginBottom: '1rem' }}>Vehicle Type Breakdown</h2>
+              <canvas id="vehChart" height="200" />
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.75rem', textAlign: 'center' }}>
+                Heavy commercial vehicles and BMTC buses constitute over 60% of breakdown obstructions.
               </p>
             </div>
-            
-            {/* Model Selector Dropdown */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Select Model:</span>
-              <select
-                value={selectedModelXai}
-                onChange={(e) => setSelectedModelXai(e.target.value)}
-                style={{
-                  background: 'var(--form-control-bg)',
-                  color: 'var(--text-primary)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                  padding: '6px 12px',
-                  fontSize: '0.85rem',
-                  fontWeight: '600',
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                <option value="duration_model">Incident Duration Model (Regressor)</option>
-                <option value="priority_model">Congestion Priority Model (Classifier)</option>
-                <option value="closure_model">Road Closure Model (Classifier)</option>
-              </select>
+          </div>
+
+          <div className="grid-2">
+            <div className="panel">
+              <h2 className="panel-title" style={{ marginBottom: '1rem' }}>Hourly Distribution (IST)</h2>
+              <canvas id="hourChart" height="150" />
+            </div>
+            <div className="panel">
+              <h2 className="panel-title" style={{ marginBottom: '1rem' }}>Top 15 Most Active Police Stations</h2>
+              <div className="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Police Station</th>
+                      <th>Incident Count</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analytics.top_police_stations.map((ps, i) => (
+                      <tr key={i}>
+                        <td style={{ textTransform: 'capitalize' }}>{ps.police_station}</td>
+                        <td>{ps.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ══════════════════════════════════════════════════════ */}
+      {/* TRENDS sub-view                                        */}
+      {/* ══════════════════════════════════════════════════════ */}
+      {analyticsTab === 'trends' && (
+        <>
+          {/* Monthly Seasonal Trend */}
+          <div className="panel">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '8px' }}>
+              <h2 className="panel-title" style={{ margin: 0 }}>Monthly Incident Trend — Seasonal Analysis</h2>
+              <div style={{ display: 'flex', gap: '14px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: 10, height: 10, background: 'rgba(99,102,241,0.7)', borderRadius: '2px', display: 'inline-block' }} />
+                  Standard
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: 10, height: 10, background: 'rgba(59,130,246,0.7)', borderRadius: '2px', display: 'inline-block' }} />
+                  Monsoon (Jun–Sep)
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: 10, height: 10, background: 'rgba(245,158,11,0.7)', borderRadius: '2px', display: 'inline-block' }} />
+                  Festival (Oct–Nov)
+                </span>
+              </div>
+            </div>
+            <canvas id="monthChart" height="100" />
+          </div>
+
+          {/* Weekly Heatmap */}
+          <div className="panel">
+            <h2 className="panel-title" style={{ marginBottom: '1rem' }}>Weekly Incident Heatmap — Day × Hour (IST)</h2>
+            <div style={{ overflowX: 'auto' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `50px repeat(24, 1fr)`, gap: '2px', minWidth: '700px' }}>
+                <div style={{ fontSize: '10px', color: '#64748b' }}></div>
+                {Array.from({ length: 24 }, (_, h) => (
+                  <div key={h} style={{ fontSize: '9px', color: '#64748b', textAlign: 'center', paddingBottom: '3px' }}>{h}</div>
+                ))}
+                {DAYS.map((day, d) => (
+                  <React.Fragment key={d}>
+                    <div style={{ fontSize: '10px', color: '#94a3b8', display: 'flex', alignItems: 'center', fontWeight: '600' }}>{day}</div>
+                    {Array.from({ length: 24 }, (_, h) => {
+                      const count = getWeeklyCell(d, h);
+                      return (
+                        <div
+                          key={h}
+                          title={`${day} ${h}:00 — ${count} incidents`}
+                          style={{ height: '18px', borderRadius: '2px', background: heatColor(count), cursor: 'default', transition: 'opacity 0.2s' }}
+                        />
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px', fontSize: '10px', color: '#94a3b8', justifyContent: 'flex-end', alignItems: 'center' }}>
+                <span>Low</span>
+                {['rgba(148, 163, 184, 0.12)', '#6366f1', '#f59e0b', '#f97316', '#ef4444'].map((c, i) => (
+                  <div key={i} style={{ width: '14px', height: '14px', background: c, borderRadius: '2px' }} />
+                ))}
+                <span>High</span>
+              </div>
             </div>
           </div>
 
-          <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', background: 'var(--terminal-bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-            <canvas id="featureImportanceChart" height="220" />
+          {/* Venue Recurrence */}
+          <div className="panel">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
+              <MapPin size={16} color="#10b981" />
+              <h2 className="panel-title">Chronic Incident Venues — Recurrent Obstruction Hotspots</h2>
+            </div>
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Grid Location (lat,lon)</th>
+                    <th>Incidents</th>
+                    <th>Top Cause</th>
+                    <th>Avg Duration</th>
+                    <th>Road Closure %</th>
+                    <th>Recurrence Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {venueRecurrence.slice(0, 20).map((v, i) => {
+                    const score = v.recurrence_score || 0;
+                    const scoreColor = score >= 70 ? '#ef4444' : score >= 40 ? '#f97316' : '#6366f1';
+                    return (
+                      <tr key={i}>
+                        <td style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>#{i + 1}</td>
+                        <td style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                          {Number(v.lat).toFixed(4)}, {Number(v.lon).toFixed(4)}
+                        </td>
+                        <td style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{v.incident_count}</td>
+                        <td style={{ textTransform: 'capitalize', color: 'var(--primary)', fontWeight: '600' }}>{String(v.top_cause).replace(/_/g, ' ')}</td>
+                        <td>{v.avg_duration ? formatMinutes(v.avg_duration) : '—'}</td>
+                        <td>{Number(v.road_closure_rate).toFixed(1)}%</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ flex: 1, height: '4px', background: 'var(--border-color)', borderRadius: '2px' }}>
+                              <div style={{ height: '4px', borderRadius: '2px', width: `${score}%`, background: scoreColor }} />
+                            </div>
+                            <span style={{ fontSize: '10px', color: scoreColor, fontWeight: '700', width: '28px' }}>{score}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </>
       )}
 
-      {/* Charts Grid */}
-      <div className="grid-2">
-        <div className="panel">
-          <h2 className="panel-title" style={{ marginBottom: '1rem' }}>Incidents by Cause</h2>
-          <canvas id="causeChart" height="200" />
-        </div>
-        <div className="panel">
-          <h2 className="panel-title" style={{ marginBottom: '1rem' }}>Vehicle Type Breakdown</h2>
-          <canvas id="vehChart" height="200" />
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.75rem', textAlign: 'center' }}>
-            Heavy commercial vehicles and BMTC buses constitute over 60% of breakdown obstructions.
-          </p>
-        </div>
-      </div>
+      {/* ══════════════════════════════════════════════════════ */}
+      {/* MODEL HEALTH sub-view                                  */}
+      {/* ══════════════════════════════════════════════════════ */}
+      {analyticsTab === 'model' && (
+        <>
+          {/* Retraining & Diagnostics Panel */}
+          <div className="grid-2" style={{ marginBottom: '2rem' }}>
+            {/* Upload Card */}
+            <div className="panel" style={{ marginBottom: 0 }}>
+              <h2 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
+                <Database size={18} color="var(--primary)" />
+                Retrain Models with Additional Data
+              </h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
+                Upload raw ASTRAM event logs in CSV format. The pipeline will automatically clean features, resolve coordinates, handle peak hours, and train new champion models.
+              </p>
+              <form onSubmit={handleCSVUpload} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <input
+                    type="file"
+                    id="csv-file-input"
+                    accept=".csv"
+                    onChange={e => setCsvFile(e.target.files[0])}
+                    disabled={uploading}
+                    style={{ background: 'var(--form-control-bg)', border: '1px dashed var(--border-color)', padding: '12px', borderRadius: '8px', width: '100%', color: 'var(--text-primary)', fontSize: '0.85rem' }}
+                  />
+                </div>
+                {uploadMsg && (
+                  <div style={{ fontSize: '11px', padding: '8px 12px', borderRadius: '6px', background: uploadSuccess ? 'rgba(16,185,129,0.08)' : 'rgba(99,102,241,0.08)', border: `1px solid ${uploadSuccess ? 'rgba(16,185,129,0.2)' : 'rgba(99,102,241,0.2)'}`, color: uploadSuccess ? 'var(--success)' : 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {uploading && <RefreshCw className="animate-spin" size={12} style={{ animation: 'spin 1.5s linear infinite' }} />}
+                    <span>{uploadMsg}</span>
+                  </div>
+                )}
+                <button type="submit" className="btn-primary" disabled={uploading} style={{ fontSize: '0.9rem', padding: '10px 16px' }}>
+                  {uploading ? (
+                    <><RefreshCw className="animate-spin" size={14} style={{ animation: 'spin 1.5s linear infinite' }} /> Processing &amp; Retraining...</>
+                  ) : "Upload CSV & Retrain Model"}
+                </button>
+              </form>
+            </div>
 
-      <div className="grid-2">
-        <div className="panel">
-          <h2 className="panel-title" style={{ marginBottom: '1rem' }}>Hourly Distribution (IST)</h2>
-          <canvas id="hourChart" height="150" />
-        </div>
-        <div className="panel">
-          <h2 className="panel-title" style={{ marginBottom: '1rem' }}>Top 15 Most Active Police Stations</h2>
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Police Station</th>
-                  <th>Incident Count</th>
-                </tr>
-              </thead>
-              <tbody>
-                {analytics.top_police_stations.map((ps, i) => (
-                  <tr key={i}>
-                    <td style={{ textTransform: 'capitalize' }}>{ps.police_station}</td>
-                    <td>{ps.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {/* Model Diagnostics Card */}
+            <div className="panel" style={{ marginBottom: 0 }}>
+              <h2 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
+                <Shield size={18} color="var(--success)" />
+                Model Diagnostics &amp; Evaluation
+              </h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
+                Metrics evaluated on a temporal test split to verify out-of-sample generalization.
+              </p>
+              {diagnostics ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid var(--border-color)' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Duration Estimator (Regression)</span>
+                    <span style={{ fontSize: '12px', fontWeight: 'bold' }}>MedAE: {formatMinutes(diagnostics.regression?.[0]?.test_median_error_minutes || 55.6)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid var(--border-color)' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Priority Escalation (Classification)</span>
+                    <span style={{ fontSize: '12px', fontWeight: 'bold' }}>F1-Score: {Math.round((diagnostics.classification?.[0]?.test_f1_score || 1.0) * 100)}%</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid var(--border-color)' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Closure Forecaster (Barricading)</span>
+                    <span style={{ fontSize: '12px', fontWeight: 'bold' }}>ROC-AUC: {Math.round((diagnostics.closure_classification?.[0]?.test_roc_auc || 0.811) * 1000) / 10}%</span>
+                  </div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: '6px' }}>
+                    * Model architecture: Optimized Random Forests &amp; Gradient Boosting Classifiers.
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100px' }}>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Loading evaluation metrics...</p>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </div>
+
+          {/* Data Scope note */}
+          <div className="panel">
+            <div className="panel-header">
+              <h2 className="panel-title">Data Scope &amp; Model Tuning</h2>
+              <span className="badge badge-learned">Tuned Models Active</span>
+            </div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+              <p style={{ marginBottom: '0.5rem' }}>
+                <strong>Real-world Analysis Summary:</strong> Vehicle breakdowns dominate Bengaluru's traffic obstructions,
+                accounting for <strong>59.9% of all rows (4,896 incidents)</strong>. Genuinely planned events (VIP movement,
+                sports, public rallies) make up only <strong>1.8%</strong> of the dataset.
+              </p>
+              <p>
+                <strong>Duration Cap Heuristics &amp; Model Tuning:</strong> Out of 8,173 events, only 3,192 rows (39%) have valid
+                completed durations. The pipeline drops negative entries and caps outlier durations at p90. The RandomForest
+                model is tuned with optimized hyperparameters (estimators=150, depth=12) for stable generalization.
+              </p>
+            </div>
+          </div>
+
+          {/* Correlation Matrix */}
+          <CorrelationGrid correlationData={correlationData} />
+
+          {/* ML Feature Importance (XAI) Panel */}
+          {diagnostics && diagnostics.feature_importances && (
+            <div className="panel" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div>
+                  <h2 className="panel-title" style={{ marginBottom: '0.25rem' }}>Explainable AI (XAI) — ML Model Feature Weights</h2>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Normalized feature weights from the selected pre-trained Random Forest model.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Select Model:</span>
+                  <select
+                    value={selectedModelXai}
+                    onChange={(e) => setSelectedModelXai(e.target.value)}
+                    style={{ background: 'var(--form-control-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px 12px', fontSize: '0.85rem', fontWeight: '600', outline: 'none', cursor: 'pointer' }}
+                  >
+                    <option value="duration_model">Incident Duration Model (Regressor)</option>
+                    <option value="priority_model">Congestion Priority Model (Classifier)</option>
+                    <option value="closure_model">Road Closure Model (Classifier)</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', background: 'var(--terminal-bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <canvas id="featureImportanceChart" height="220" />
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
 
     {/* Toast Notification */}
