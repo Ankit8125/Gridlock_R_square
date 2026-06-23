@@ -195,11 +195,17 @@ class EventPredictor:
         hotspots = []
         grouped = clusters_df.groupby('cluster')
         
+        import math
         for cluster_id, group in grouped:
             lat = float(group['latitude'].mean())
             lon = float(group['longitude'].mean())
             incident_count = int(group.shape[0])
-            avg_duration = float(group['duration'].mean()) if not group['duration'].empty else 64.5
+            
+            duration_col = group['duration'].dropna()
+            if not duration_col.empty:
+                avg_duration = float(duration_col.mean())
+            else:
+                avg_duration = 64.5
             
             # Dominant police station clean
             dominant_station = 'unknown'
@@ -227,6 +233,18 @@ class EventPredictor:
                 
             display_name = f"Zone near {dominant_station.title()}"
             
+            # Handle float nan and inf values robustly for JSON compatibility
+            if math.isnan(lat) or math.isinf(lat):
+                lat = 0.0
+            if math.isnan(lon) or math.isinf(lon):
+                lon = 0.0
+            if math.isnan(avg_duration) or math.isinf(avg_duration):
+                avg_duration = 64.5
+            if math.isnan(road_closure_rate) or math.isinf(road_closure_rate):
+                road_closure_rate = 0.0
+            if math.isnan(high_priority_rate) or math.isinf(high_priority_rate):
+                high_priority_rate = 0.0
+                
             hotspots.append({
                 'cluster_id': int(cluster_id),
                 'police_station_clean': display_name,
