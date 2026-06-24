@@ -139,8 +139,10 @@ export default function FeedbackLog() {
     }
 
     return () => {
-      // Do not destroy here if we want to keep it alive across data updates.
-      // We will only destroy when the component completely unmounts, or canvas hides.
+      if (feedbackChartRef.current) {
+        feedbackChartRef.current.destroy();
+        feedbackChartRef.current = null;
+      }
     };
   }, [displayLogs.length > 0]); // Re-run if the canvas mounts/unmounts
 
@@ -326,7 +328,7 @@ export default function FeedbackLog() {
       <div className="forecast-results">
         <div className="panel">
           <h2 className="panel-title" style={{ marginBottom: '1rem' }}>Forecast vs. Actual Performance (Post-Event Learning Loop)</h2>
-          {isLoadingLogs ? (
+          {isLoadingLogs && displayLogs.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '240px', gap: '10px' }}>
               <RefreshCw className="animate-spin" size={32} color="var(--primary)" style={{ animation: 'spin 1.5s linear infinite' }} />
               <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Loading performance history...</p>
