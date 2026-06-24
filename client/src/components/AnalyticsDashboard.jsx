@@ -526,6 +526,7 @@ export default function AnalyticsDashboard({ analytics, correlationData, refresh
                 Cascade risk = f(overlap duration, road closure count). Score ≥7 = High · ≥4 = Medium · &lt;4 = Low.
               </p>
             </div>
+          )}
         </>
       )}
 
