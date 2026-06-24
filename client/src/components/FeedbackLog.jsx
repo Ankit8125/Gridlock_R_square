@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Chart } from 'chart.js/auto';
 import { PlusCircle, RefreshCw, MessageSquare, Clock } from 'lucide-react';
 
@@ -21,6 +21,49 @@ const API_BASE = import.meta.env.VITE_API_BASE ||
     ? "http://127.0.0.1:8000/api" 
     : "/api");
 
+const LOCAL_LOGS_KEY = 'astram_local_feedback_logs';
+
+const readLocalLogs = () => {
+  try {
+    const storedLogs = localStorage.getItem(LOCAL_LOGS_KEY);
+    return storedLogs ? JSON.parse(storedLogs) : [];
+  } catch (error) {
+    console.error('Failed to read locally saved feedback logs', error);
+    return [];
+  }
+};
+
+const getLogSignature = (log) => JSON.stringify([
+  log.event_id || '',
+  log.duration?.actual ?? null,
+  log.manpower?.actual ?? null,
+  log.barricades?.actual ?? null,
+  log.notes || ''
+]);
+
+const mergeFeedbackLogs = (serverLogs, localLogs) => {
+  const unmatchedLocalLogs = new Map();
+
+  localLogs.forEach((log) => {
+    const signature = getLogSignature(log);
+    const matchingLogs = unmatchedLocalLogs.get(signature) || [];
+    matchingLogs.push(log);
+    unmatchedLocalLogs.set(signature, matchingLogs);
+  });
+
+  // Preserve every server record. Consume one matching local copy for each
+  // server record so repeated submissions for the same event remain distinct.
+  serverLogs.forEach((log) => {
+    const matchingLogs = unmatchedLocalLogs.get(getLogSignature(log));
+    if (matchingLogs?.length) matchingLogs.shift();
+  });
+
+  return [
+    ...serverLogs,
+    ...Array.from(unmatchedLocalLogs.values()).flat()
+  ];
+};
+
 export default function FeedbackLog() {
   // Form State
   const [feedbackEventId, setFeedbackEventId] = useState('');
@@ -36,68 +79,33 @@ export default function FeedbackLog() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState('');
   const feedbackChartRef = useRef(null);
+  const hasLogs = logs.length > 0;
 
   const fetchFeedbackLogs = async () => {
     setIsLoadingLogs(true);
+    const localLogs = readLocalLogs();
+
     try {
       const res = await fetch(`${API_BASE}/feedback/summary`);
+      if (!res.ok) {
+        throw new Error(`Feedback summary request failed with status ${res.status}`);
+      }
+
       const data = await res.json();
       const serverLogs = data.logs || [];
-
-      // Retrieve locally saved logs
-      const localLogsStr = localStorage.getItem('astram_local_feedback_logs');
-      const localLogs = localLogsStr ? JSON.parse(localLogsStr) : [];
-
-      // Merge server logs and local logs, keyed by event_id.
-      // Local logs represent newer updates, so they take precedence.
-      const mergedMap = {};
-      serverLogs.forEach(log => {
-        if (log.event_id) {
-          mergedMap[log.event_id] = log;
-        }
-      });
-      localLogs.forEach(log => {
-        if (log.event_id) {
-          mergedMap[log.event_id] = log;
-        }
-      });
-
-      setLogs(Object.values(mergedMap));
+      setLogs(mergeFeedbackLogs(serverLogs, localLogs));
     } catch (e) {
       console.error("Failed to load feedback logs", e);
+      setLogs((currentLogs) => currentLogs.length > 0 ? currentLogs : localLogs);
     } finally {
       setIsLoadingLogs(false);
     }
   };
 
   useEffect(() => {
-    fetchFeedbackLogs();
+    // Initial data must be fetched after mount; the callback owns its loading state.
+    fetchFeedbackLogs(); // eslint-disable-line react-hooks/set-state-in-effect
   }, []);
-
-  // Compute displayLogs to show live preview of what the user is typing
-  const displayLogs = React.useMemo(() => {
-    const arr = [...logs];
-    if (feedbackEventId || actualDuration) {
-      arr.push({
-        event_id: feedbackEventId || '(Pending...)',
-        police_station: feedbackStation || '—',
-        duration: {
-          predicted: 0, // Cannot predict live without API call
-          actual: parseFloat(actualDuration) || 0
-        },
-        manpower: {
-          recommended: 0,
-          actual: parseInt(actualManpower) || 0
-        },
-        barricades: {
-          recommended: 0,
-          actual: parseInt(actualBarricades) || 0
-        },
-        isPending: true
-      });
-    }
-    return arr;
-  }, [logs, feedbackEventId, actualDuration, actualManpower, actualBarricades, feedbackStation]);
 
   // Handle Chart instance creation and destruction
   useEffect(() => {
@@ -144,21 +152,21 @@ export default function FeedbackLog() {
         feedbackChartRef.current = null;
       }
     };
-  }, [displayLogs.length > 0]); // Re-run if the canvas mounts/unmounts
+  }, [hasLogs]); // Re-run if the canvas mounts/unmounts
 
   // Handle Chart data updates smoothly
   useEffect(() => {
-    if (feedbackChartRef.current && displayLogs.length > 0) {
-      const labels = displayLogs.map(l => l.event_id);
-      const predictedDurs = displayLogs.map(l => l.duration?.predicted || 0);
-      const actualDurs = displayLogs.map(l => l.duration?.actual || 0);
+    if (feedbackChartRef.current && hasLogs) {
+      const labels = logs.map(l => l.event_id);
+      const predictedDurs = logs.map(l => l.duration?.predicted || 0);
+      const actualDurs = logs.map(l => l.duration?.actual || 0);
 
       feedbackChartRef.current.data.labels = labels;
       feedbackChartRef.current.data.datasets[0].data = predictedDurs;
       feedbackChartRef.current.data.datasets[1].data = actualDurs;
-      feedbackChartRef.current.update('none'); // Live update without full animation
+      feedbackChartRef.current.update('none');
     }
-  }, [displayLogs]);
+  }, [logs, hasLogs]);
 
 
   const handleFeedbackSubmit = async (e) => {
@@ -182,16 +190,16 @@ export default function FeedbackLog() {
       if (data.status === 'success') {
         setFeedbackMsg("Feedback log submitted successfully! Recommendation policy updated dynamically.");
         
-        // Save the detailed log entry locally to persist across Vercel stateless container recycles
+        // Append locally so earlier submissions with the same event ID remain.
         if (data.log_entry) {
-          const localLogsStr = localStorage.getItem('astram_local_feedback_logs');
-          const localLogs = localLogsStr ? JSON.parse(localLogsStr) : [];
-          
-          // Filter out any existing local entry for this event_id
-          const updatedLocalLogs = localLogs.filter(log => log.event_id !== data.log_entry.event_id);
-          updatedLocalLogs.push(data.log_entry);
-          
-          localStorage.setItem('astram_local_feedback_logs', JSON.stringify(updatedLocalLogs));
+          const submittedLog = {
+            ...data.log_entry,
+            submitted_at: data.log_entry.submitted_at || new Date().toISOString()
+          };
+          const updatedLocalLogs = [...readLocalLogs(), submittedLog];
+
+          localStorage.setItem(LOCAL_LOGS_KEY, JSON.stringify(updatedLocalLogs));
+          setLogs((currentLogs) => [...currentLogs, submittedLog]);
         }
 
         setFeedbackEventId('');
@@ -328,12 +336,12 @@ export default function FeedbackLog() {
       <div className="forecast-results">
         <div className="panel">
           <h2 className="panel-title" style={{ marginBottom: '1rem' }}>Forecast vs. Actual Performance (Post-Event Learning Loop)</h2>
-          {isLoadingLogs && displayLogs.length === 0 ? (
+          {isLoadingLogs && !hasLogs ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '240px', gap: '10px' }}>
               <RefreshCw className="animate-spin" size={32} color="var(--primary)" style={{ animation: 'spin 1.5s linear infinite' }} />
               <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Loading performance history...</p>
             </div>
-          ) : displayLogs.length > 0 ? (
+          ) : hasLogs ? (
             <>
               <div style={{ height: '240px', marginBottom: '1.5rem', position: 'relative' }}>
                 <canvas id="feedbackChart"></canvas>
@@ -351,8 +359,8 @@ export default function FeedbackLog() {
                     </tr>
                   </thead>
                   <tbody>
-                    {displayLogs.map((log, i) => (
-                      <tr key={i} style={log.isPending ? { opacity: 0.6, borderLeft: '3px solid var(--primary)' } : {}}>
+                    {logs.map((log, i) => (
+                      <tr key={`${log.event_id || 'feedback'}-${log.submitted_at || 'local'}-${i}`}>
                         <td style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>{log.event_id}</td>
                         <td style={{ textTransform: 'capitalize' }}>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
