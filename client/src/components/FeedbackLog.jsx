@@ -74,28 +74,45 @@ export default function FeedbackLog() {
     fetchFeedbackLogs();
   }, []);
 
-  // Render Chart comparing predicted vs actual durations
+  // Compute displayLogs to show live preview of what the user is typing
+  const displayLogs = React.useMemo(() => {
+    const arr = [...logs];
+    if (feedbackEventId || actualDuration) {
+      arr.push({
+        event_id: feedbackEventId || '(Pending...)',
+        police_station: feedbackStation || '—',
+        duration: {
+          predicted: 0, // Cannot predict live without API call
+          actual: parseFloat(actualDuration) || 0
+        },
+        manpower: {
+          recommended: 0,
+          actual: parseInt(actualManpower) || 0
+        },
+        barricades: {
+          recommended: 0,
+          actual: parseInt(actualBarricades) || 0
+        },
+        isPending: true
+      });
+    }
+    return arr;
+  }, [logs, feedbackEventId, actualDuration, actualManpower, actualBarricades, feedbackStation]);
+
+  // Handle Chart instance creation and destruction
   useEffect(() => {
-    if (logs.length === 0) return;
-
     const ctxF = document.getElementById('feedbackChart');
-    if (ctxF) {
-      if (feedbackChartRef.current) {
-        feedbackChartRef.current.destroy();
-      }
+    if (!ctxF) return;
 
-      const labels = logs.map(l => l.event_id);
-      const predictedDurs = logs.map(l => l.duration?.predicted || 0);
-      const actualDurs = logs.map(l => l.duration?.actual || 0);
-
+    if (!feedbackChartRef.current) {
       feedbackChartRef.current = new Chart(ctxF, {
         type: 'line',
         data: {
-          labels,
+          labels: [],
           datasets: [
             {
               label: 'Predicted Duration (min)',
-              data: predictedDurs,
+              data: [],
               borderColor: '#3b82f6',
               borderDash: [5, 5],
               fill: false,
@@ -103,7 +120,7 @@ export default function FeedbackLog() {
             },
             {
               label: 'Actual Duration (min)',
-              data: actualDurs,
+              data: [],
               borderColor: '#10b981',
               fill: false,
               tension: 0.2
@@ -122,12 +139,25 @@ export default function FeedbackLog() {
     }
 
     return () => {
-      if (feedbackChartRef.current) {
-        feedbackChartRef.current.destroy();
-        feedbackChartRef.current = null;
-      }
+      // Do not destroy here if we want to keep it alive across data updates.
+      // We will only destroy when the component completely unmounts, or canvas hides.
     };
-  }, [logs]);
+  }, [displayLogs.length > 0]); // Re-run if the canvas mounts/unmounts
+
+  // Handle Chart data updates smoothly
+  useEffect(() => {
+    if (feedbackChartRef.current && displayLogs.length > 0) {
+      const labels = displayLogs.map(l => l.event_id);
+      const predictedDurs = displayLogs.map(l => l.duration?.predicted || 0);
+      const actualDurs = displayLogs.map(l => l.duration?.actual || 0);
+
+      feedbackChartRef.current.data.labels = labels;
+      feedbackChartRef.current.data.datasets[0].data = predictedDurs;
+      feedbackChartRef.current.data.datasets[1].data = actualDurs;
+      feedbackChartRef.current.update('none'); // Live update without full animation
+    }
+  }, [displayLogs]);
+
 
   const handleFeedbackSubmit = async (e) => {
     e.preventDefault();
@@ -301,7 +331,7 @@ export default function FeedbackLog() {
               <RefreshCw className="animate-spin" size={32} color="var(--primary)" style={{ animation: 'spin 1.5s linear infinite' }} />
               <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Loading performance history...</p>
             </div>
-          ) : logs.length > 0 ? (
+          ) : displayLogs.length > 0 ? (
             <>
               <div style={{ height: '240px', marginBottom: '1.5rem', position: 'relative' }}>
                 <canvas id="feedbackChart"></canvas>
@@ -319,8 +349,8 @@ export default function FeedbackLog() {
                     </tr>
                   </thead>
                   <tbody>
-                    {logs.map((log, i) => (
-                      <tr key={i}>
+                    {displayLogs.map((log, i) => (
+                      <tr key={i} style={log.isPending ? { opacity: 0.6, borderLeft: '3px solid var(--primary)' } : {}}>
                         <td style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>{log.event_id}</td>
                         <td style={{ textTransform: 'capitalize' }}>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
